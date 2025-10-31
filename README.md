@@ -874,11 +874,5 @@ Para reportar problemas o solicitar nuevas funcionalidades:
 ---
 
 <div align="center">
-
-**Hecho con ❤️ para la comunidad Uteísta**
-
-![UTS Logo](https://www.uts.edu.co/sitio/wp-content/uploads/2019/10/Logo-UTS-1.png)
-
-[⬆️ Volver arriba](#-eval-api)
-
+  <img src="https://www.uts.edu.co/sitio/wp-content/uploads/2019/10/Logo-UTS-1.png" alt="UTS Logo" width="300">
 </div>
