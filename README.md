@@ -874,5 +874,5 @@ Para reportar problemas o solicitar nuevas funcionalidades:
 ---
 
 <div align="center">
-  <img src="https://www.uts.edu.co/sitio/wp-content/uploads/2019/10/Logo-UTS-1.png" alt="UTS Logo" width="300">
+  <img src="https://www.uts.edu.co/sitio/wp-content/uploads/2019/10/favicon-1-1.png" alt="UTS Logo" width="300">
 </div>
