@@ -206,3 +206,5 @@ api-docs/
 .sass-cache/
 *.css.map
 *.js.map
+
+/src/generated/prisma
