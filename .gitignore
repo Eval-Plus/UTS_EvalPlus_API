@@ -1,0 +1,208 @@
+# ========================
+# Node.js
+# ========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ========================
+# Variables de Entorno
+# ========================
+.env
+.env.*
+.env.local
+.env.development
+.env.test
+.env.production
+!.env.example
+
+# ========================
+# Logs
+# ========================
+logs/
+*.log
+logs/*.log
+/logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# ========================
+# PM2
+# ========================
+.pm2/
+ecosystem.config.js
+pids/
+*.pid
+*.seed
+
+# ========================
+# Coverage & Testing
+# ========================
+coverage/
+.nyc_output/
+*.lcov
+.grunt
+lib-cov
+.coverage
+.mocha.tap.out
+
+# ========================
+# Build & Distribution
+# ========================
+dist/
+build/
+.cache/
+*.tsbuildinfo
+
+# ========================
+# Temporales
+# ========================
+tmp/
+temp/
+*.tmp
+*.temp
+.tmp/
+
+# ========================
+# Bases de Datos
+# ========================
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+
+# ========================
+# Sistema Operativo
+# ========================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ========================
+# IDEs & Editores
+# ========================
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.history/
+
+# JetBrains (WebStorm, IntelliJ, etc.)
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+*.swp
+*.swo
+*.swn
+*~
+.*.sw[a-p]
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ========================
+# Certificados & Keys
+# ========================
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+
+# ========================
+# Backups
+# ========================
+*.bak
+*.backup
+*.old
+*.orig
+
+# ========================
+# Uploads & Assets (si aplica)
+# ========================
+uploads/
+public/uploads/
+storage/
+
+# ========================
+# Dependencias Opcionales
+# ========================
+.npm
+.eslintcache
+.node_repl_history
+.yarn-integrity
+.pnp.*
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# ========================
+# TypeScript (si lo usas después)
+# ========================
+*.tsbuildinfo
+dist/
+build/
+
+# ========================
+# Documentación Generada
+# ========================
+docs/generated/
+api-docs/
+
+# ========================
+# Otros
+# ========================
+.sass-cache/
+*.css.map
+*.js.map
