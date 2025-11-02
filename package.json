@@ -1,6 +1,7 @@
 {
   "name": "evalplus-api",
   "version": "1.0.0",
+  "type": "module",
   "description": "Backend API para Eval+",
   "main": "src/server.js",
   "scripts": {

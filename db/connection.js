@@ -1,5 +1,7 @@
-const { Pool } = require('pg');
-require('dotenv').config();
+import pg from 'pg';
+import 'dotenv/config';
+
+const { Pool } = pg;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -17,4 +19,4 @@ pool.connect((err, client, release) => {
   release();
 });
 
-module.exports = pool;
+export default pool;
