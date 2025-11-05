@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import authRoutes from './routes/auth.routes.js';
 
 const app = express();
 
@@ -17,7 +18,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Logging
-app.use(morgan('combined'));
+if (process.env.NODE_ENV !== 'test') {
+  app.use(morgan('combined'));
+}
 
 // Health check
 app.get('/health', (req, res) => {
@@ -27,6 +30,9 @@ app.get('/health', (req, res) => {
     service: 'evalplus-api'
   });
 });
+
+// Rutas API
+app.use('/api/v1/auth', authRoutes);
 
 // Ruta de prueba
 app.get('/api/v1/test', (req, res) => {
@@ -38,15 +44,21 @@ app.get('/api/v1/test', (req, res) => {
 
 // Manejo de rutas no encontradas
 app.use((req, res) => {
-  res.status(404).json({ error: 'Ruta no encontrada' });
+  res.status(404).json({ 
+    success: false,
+    message: 'Ruta no encontrada',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Manejo de errores
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ 
-    error: 'Error interno del servidor',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    success: false,
+    message: 'Error interno del servidor',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    timestamp: new Date().toISOString()
   });
 });
 
