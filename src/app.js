@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import passport from './config/passport.js';
 
 // Routes
 import authRoutes from './routes/auth.routes.js';
@@ -18,6 +19,9 @@ app.use(cors({
 // Middlewares de parseo
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Inicializar Passport
+app.use(passport.initialize());
 
 // Logging
 if (process.env.NODE_ENV !== 'test') {
