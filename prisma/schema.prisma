@@ -11,17 +11,17 @@ datasource db {
 }
 
 model Student {
-  id              Int       @id @default(autoincrement())
-  googleId        String?   @unique @map("google_id") @db.VarChar(255)
-  nombreCompleto  String    @map("nombre_completo") @db.VarChar(255)
-  email           String    @unique @db.VarChar(255)
-  profilePicture  String?   @map("profile_picture") @db.Text
-  identificacion  String?   @unique @map("identificacion") @db.VarChar(50)
-  carreras        String[]  @default([])
-  materias        String[]  @default([])
+  id                Int       @id @default(autoincrement())
+  microsoftId       String?   @unique @map("microsoft_id") @db.VarChar(255)
+  nombreCompleto    String    @map("nombre_completo") @db.VarChar(255)
+  email             String    @unique @db.VarChar(255)
+  profilePicture    String?   @map("profile_picture") @db.Text
+  identificacion    String?   @unique @map("identificacion") @db.VarChar(50)
+  carreras          String[]  @default([])
+  materias          String[]  @default([])
   isProfileComplete Boolean @default(false) @map("is_profile_complete")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   @@map("students")
 }

@@ -1,7 +1,7 @@
 -- CreateTable
 CREATE TABLE "students" (
     "id" SERIAL NOT NULL,
-    "google_id" VARCHAR(255),
+    "microsoft_id" VARCHAR(255),
     "nombre_completo" VARCHAR(255) NOT NULL,
     "email" VARCHAR(255) NOT NULL,
     "profile_picture" TEXT,
@@ -16,7 +16,7 @@ CREATE TABLE "students" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "students_google_id_key" ON "students"("google_id");
+CREATE UNIQUE INDEX "students_microsoft_id_key" ON "students"("microsoft_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "students_email_key" ON "students"("email");

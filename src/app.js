@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+
+// Routes
 import authRoutes from './routes/auth.routes.js';
 
 const app = express();
@@ -24,19 +26,19 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Health check
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'ok', 
+  res.status(200).json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
     service: 'evalplus-api'
   });
 });
 
 // Rutas API
-app.use('/api/v1/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 
 // Ruta de prueba
-app.get('/api/v1/test', (req, res) => {
-  res.json({ 
+app.get('/api/test', (req, res) => {
+  res.json({
     message: 'Eval+ API funcionando correctamente',
     version: '1.0.0'
   });
@@ -44,7 +46,7 @@ app.get('/api/v1/test', (req, res) => {
 
 // Manejo de rutas no encontradas
 app.use((req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     success: false,
     message: 'Ruta no encontrada',
     timestamp: new Date().toISOString()
@@ -54,7 +56,7 @@ app.use((req, res) => {
 // Manejo de errores
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ 
+  res.status(500).json({
     success: false,
     message: 'Error interno del servidor',
     error: process.env.NODE_ENV === 'development' ? err.message : undefined,
