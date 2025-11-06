@@ -14,21 +14,28 @@ export class AuthController {
 
       const { token, user, isNewUser } = req.user;
 
-      // En producción, redirigir al frontend con el token
-      // Puedes usar query params o guardar en cookie segura
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&isNewUser=${isNewUser}`;
-
-      // Opción 1: Redirigir al frontend
-      return res.redirect(redirectUrl);
-
-      // Opción 2: Retornar JSON (si el frontend hace la petición directamente)
-      // return successResponse(
-      //   res,
-      //   { token, user, isNewUser },
-      //   isNewUser ? 'Cuenta creada exitosamente' : 'Inicio de sesión exitoso',
-      //   200
-      // );
+      // Detectar si viene de app móvil o web
+      const isMobileApp = req.headers['user-agent']?.includes('Flutter') ||
+                          req.query.platform === 'mobile' ||
+                          req.headers['x-platform'] === 'mobile';
+      if (isMobileApp) {
+	// Retornar JSON para Flutter
+        return successResponse(
+	  res,
+	  {
+	    token,
+	    user,
+	    isNewUser
+	  },
+	  isNewUser ? 'Cuenta creada exitosamente' : 'Inicio de sesión exitoso',
+	  200
+	);
+      } else {
+	// Redirigir para web
+	const frontendUrl = process.env.FRONTEND_URL;
+        const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&isNewUser=${isNewUser}`;
+	return res.redirect(redirectUrl);
+      }
     } catch (error) {
       console.error('Error en microsoftCallback:', error);
       return errorResponse(res, 'Error al procesar la autenticación', 500);
