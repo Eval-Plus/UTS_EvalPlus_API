@@ -6,6 +6,7 @@ import passport from './config/passport.js';
 
 // Routes
 import authRoutes from './routes/auth.routes.js';
+import careerRoutes from './routes/career.routes.js';
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.get('/health', (req, res) => {
 
 // Rutas API
 app.use('/api/auth', authRoutes);
+app.use('/api/careers', careerRoutes);
 
 // Ruta de prueba
 app.get('/api/test', (req, res) => {

@@ -17,11 +17,43 @@ model Student {
   email             String    @unique @db.VarChar(255)
   profilePicture    String?   @map("profile_picture") @db.Text
   identificacion    String?   @unique @map("identificacion") @db.VarChar(50)
-  carreras          String[]  @default([])
-  materias          String[]  @default([])
-  isProfileComplete Boolean @default(false) @map("is_profile_complete")
+  isProfileComplete Boolean   @default(false) @map("is_profile_complete")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
-
+  
+  // Relación muchos a muchos con Career
+  careers           StudentCareer[]
+  
   @@map("students")
+}
+
+model Career {
+  id          Int      @id @default(autoincrement())
+  nombre      String   @db.VarChar(255)
+  codigo      String   @unique @db.VarChar(50)
+  icon        String   @default("school") @db.VarChar(50)
+  color       String   @default("0xFF135D66") @db.VarChar(20)
+  descripcion String?  @db.Text
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relación muchos a muchos con Student
+  students    StudentCareer[]
+  
+  @@map("careers")
+}
+
+// Tabla intermedia para la relación muchos a muchos
+model StudentCareer {
+  id         Int      @id @default(autoincrement())
+  studentId  Int      @map("student_id")
+  careerId   Int      @map("career_id")
+  enrolledAt DateTime @default(now()) @map("enrolled_at")
+  
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  career     Career   @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  
+  @@unique([studentId, careerId])
+  @@map("student_careers")
 }

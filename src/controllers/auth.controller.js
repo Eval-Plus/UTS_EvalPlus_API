@@ -1,6 +1,10 @@
 import { AuthService } from '../services/auth.service.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
+import { StudentModel } from '../models/student.model.js';
+
+import jwt from 'jsonwebtoken';
+
 export class AuthController {
   /**
    * Maneja el callback de Microsoft OAuth
@@ -143,6 +147,58 @@ export class AuthController {
       }
 
       return errorResponse(res, 'Error al actualizar el perfil', 500);
+    }
+  }
+
+  /**
+   * Valida un token JWT y retorna información del usuario
+   */
+  static async validateToken(req, res) {
+    try {
+      const { token } = req.body;
+
+      if (!token) {
+        return errorResponse(res, 'Token no proporcionado', 400);
+      }
+
+      // Verificar el token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Opcional: Verificar que el usuario aún existe en la BD
+      const user = await StudentModel.findById(decoded.id);
+
+      if (!user) {
+        return errorResponse(res, 'Usuario no encontrado', 404);
+      }
+
+      // Retornar información del usuario sin datos sensibles
+      return successResponse(
+        res,
+        {
+          valid: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            // ... otros campos necesarios
+          }
+        },
+        'Token válido',
+        200
+      );
+
+    } catch (error) {
+      console.error('Error validando token:', error);
+
+      // Diferentes tipos de errores JWT
+      if (error.name === 'TokenExpiredError') {
+        return errorResponse(res, 'Token expirado', 401);
+      }
+      if (error.name === 'JsonWebTokenError') {
+        return errorResponse(res, 'Token inválido', 401);
+      }
+
+      return errorResponse(res, 'Error al validar el token', 500);
     }
   }
 

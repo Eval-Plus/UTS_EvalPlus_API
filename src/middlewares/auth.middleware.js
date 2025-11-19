@@ -4,7 +4,7 @@ import { errorResponse } from '../utils/response.js';
 /**
  * Middleware para verificar el token JWT
  */
-export const authenticate = (req, res, next) => {
+export const Authenticate = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 

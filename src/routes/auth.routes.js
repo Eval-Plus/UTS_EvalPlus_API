@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import passport from '../config/passport.js';
 import { AuthController } from '../controllers/auth.controller.js';
-import { authenticate } from '../middlewares/auth.middleware.js';
+import { Authenticate } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -44,7 +44,7 @@ router.get('/microsoft/failure', AuthController.microsoftFailure);
  * @desc    Obtener perfil del usuario autenticado
  * @access  Private
  */
-router.get('/profile', authenticate, AuthController.getProfile);
+router.get('/profile', Authenticate, AuthController.getProfile);
 
 /**
  * @route   PUT /api/auth/profile
@@ -52,20 +52,23 @@ router.get('/profile', authenticate, AuthController.getProfile);
  * @access  Private
  * @body    { identificacion?: string, carreras?: string[], materias?: string[] }
  */
-router.put('/profile', authenticate, AuthController.updateProfile);
+router.put('/profile', Authenticate, AuthController.updateProfile);
+
+// Validar token
+router.post('/validate-token', AuthController.validateToken);
 
 /**
  * @route   POST /api/auth/logout
  * @desc    Cerrar sesión
  * @access  Private
  */
-router.post('/logout', authenticate, AuthController.logout);
+router.post('/logout', Authenticate, AuthController.logout);
 
 /**
  * @route   GET /api/auth/check
  * @desc    Verificar estado de autenticación
  * @access  Private
  */
-router.get('/check', authenticate, AuthController.checkAuth);
+router.get('/check', Authenticate, AuthController.checkAuth);
 
 export default router;
