@@ -3,6 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import passport from './config/passport.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Routes
 import authRoutes from './routes/auth.routes.js';
@@ -10,8 +12,23 @@ import careerRoutes from './routes/career.routes.js';
 
 const app = express();
 
-// Middlewares de seguridad
-app.use(helmet());
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Middlewares de seguridad - CONFIGURAR HELMET CORRECTAMENTE
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://cdnjs.cloudflare.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://cdnjs.cloudflare.com"],
+      fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"]
+    }
+  }
+}));
+
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
   credentials: true
@@ -49,6 +66,14 @@ app.get('/api/test', (req, res) => {
     version: '1.0.0'
   });
 });
+
+// Rutas estaticas especificas
+app.get('/views/auth-callback', (req, res) => {
+  res.sendFile(path.join(__dirname, './views/auth-callback.html'));
+});
+
+// Servir estaticos
+app.use('/views', express.static(path.join(__dirname, './views')));
 
 // Manejo de rutas no encontradas
 app.use((req, res) => {

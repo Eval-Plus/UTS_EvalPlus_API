@@ -5,6 +5,12 @@ import { StudentModel } from '../models/student.model.js';
 
 import jwt from 'jsonwebtoken';
 
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 export class AuthController {
   /**
    * Maneja el callback de Microsoft OAuth
@@ -35,10 +41,9 @@ export class AuthController {
 	  200
 	);
       } else {
-	// Redirigir para web
-	const frontendUrl = process.env.FRONTEND_URL;
-        const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&isNewUser=${isNewUser}`;
-	return res.redirect(redirectUrl);
+        // Servir página HTML con el token
+        const redirectUrl = `/views/auth-callback?token=${token}&isNewUser=${isNewUser}`;
+        return res.redirect(redirectUrl);
       }
     } catch (error) {
       console.error('Error en microsoftCallback:', error);

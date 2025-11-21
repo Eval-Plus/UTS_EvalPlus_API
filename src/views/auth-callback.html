@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autenticación Exitosa - Eval+</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-900 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl">
+        <!-- Card principal -->
+        <div class="bg-gray-800 rounded-2xl shadow-2xl p-6 sm:p-8 border border-gray-700">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-green-500 rounded-full mb-4">
+                    <i class="fas fa-check text-white text-2xl"></i>
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2">
+                    <span id="welcomeText">¡Autenticación Exitosa!</span>
+                </h1>
+                <p class="text-gray-400 text-sm sm:text-base" id="statusMessage">
+                    Tu token de acceso ha sido generado correctamente
+                </p>
+            </div>
+
+            <!-- Token Container -->
+            <div class="space-y-4 mb-6">
+                <label class="block text-sm font-medium text-gray-300 mb-2">
+                    Token JWT
+                </label>
+                <div class="relative">
+                    <input 
+                        type="text" 
+                        id="tokenInput"
+                        readonly
+                        value="Cargando token..."
+                        class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-green-400 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent pr-12"
+                    >
+                    <button 
+                        id="copyBtn"
+                        class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-all duration-200 flex items-center gap-2 text-sm font-medium"
+                    >
+                        <i class="fas fa-copy"></i>
+                        <span class="hidden sm:inline">Copiar</span>
+                    </button>
+                </div>
+                
+                <!-- Mensaje de copiado -->
+                <div id="copySuccess" class="hidden bg-green-900/50 border border-green-600 text-green-400 px-4 py-2 rounded-lg text-sm flex items-center gap-2">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Token copiado al portapapeles</span>
+                </div>
+            </div>
+
+            <!-- Info adicional -->
+            <div class="bg-gray-900/50 rounded-lg p-4 mb-6">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-info-circle text-blue-400 mt-1"></i>
+                    <div class="flex-1">
+                        <p class="text-gray-300 text-sm leading-relaxed">
+                            Este token es tu credencial de acceso. Guárdalo de forma segura y úsalo en el header 
+                            <code class="bg-gray-800 px-2 py-1 rounded text-green-400 text-xs">Authorization: Bearer [token]</code>
+                            para tus peticiones.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Estado del usuario -->
+            <div id="userStatusCard" class="hidden bg-blue-900/30 border border-blue-600 rounded-lg p-4 mb-6">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-user-plus text-blue-400 text-xl"></i>
+                    <div>
+                        <p class="text-blue-300 font-medium">Nuevo Usuario</p>
+                        <p class="text-blue-200 text-sm">Completa tu perfil para comenzar</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button 
+                    id="continueBtn"
+                    class="flex-1 bg-gray-600 text-gray-400 font-medium py-3 px-6 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed opacity-60"
+                >
+                    <span>Continuar a la Aplicación</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                <button 
+                    onclick="window.close()"
+                    class="sm:w-auto bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200"
+                >
+                    Cerrar
+                </button>
+            </div>
+
+            <!-- Footer -->
+            <div class="mt-6 pt-6 border-t border-gray-700 text-center">
+                <p class="text-gray-500 text-xs">
+                    Eval+ © 2025 - Autenticación segura con Microsoft
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Obtener parámetros de la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const isNewUser = urlParams.get('isNewUser') === 'true';
+
+        // Elementos del DOM
+        const tokenInput = document.getElementById('tokenInput');
+        const copyBtn = document.getElementById('copyBtn');
+        const copySuccess = document.getElementById('copySuccess');
+        const statusMessage = document.getElementById('statusMessage');
+        const welcomeText = document.getElementById('welcomeText');
+        const userStatusCard = document.getElementById('userStatusCard');
+        const continueBtn = document.getElementById('continueBtn');
+
+        // Configurar token
+        if (token) {
+            tokenInput.value = token;
+            
+            // Mostrar mensaje según tipo de usuario
+            if (isNewUser) {
+                welcomeText.textContent = '¡Bienvenido a Eval+!';
+                statusMessage.textContent = 'Tu cuenta ha sido creada exitosamente';
+                userStatusCard.classList.remove('hidden');
+            } else {
+                welcomeText.textContent = '¡Bienvenido de nuevo!';
+                statusMessage.textContent = 'Has iniciado sesión correctamente';
+            }
+        } else {
+            tokenInput.value = 'Error: No se recibió el token';
+            tokenInput.classList.add('text-red-400');
+        }
+
+        // Función para copiar token
+        copyBtn.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(token);
+                
+                // Mostrar mensaje de éxito
+                copySuccess.classList.remove('hidden');
+                copyBtn.innerHTML = '<i class="fas fa-check"></i><span class="hidden sm:inline">Copiado</span>';
+                copyBtn.classList.add('bg-green-700');
+                
+                // Restaurar botón después de 2 segundos
+                setTimeout(() => {
+                    copySuccess.classList.add('hidden');
+                    copyBtn.innerHTML = '<i class="fas fa-copy"></i><span class="hidden sm:inline">Copiar</span>';
+                    copyBtn.classList.remove('bg-green-700');
+                }, 2000);
+            } catch (err) {
+                console.error('Error al copiar:', err);
+                alert('No se pudo copiar el token. Por favor, cópialo manualmente.');
+            }
+        });
+
+        // Permitir seleccionar el token con doble click
+        tokenInput.addEventListener('dblclick', () => {
+            tokenInput.select();
+        });
+    </script>
+</body>
+</html>

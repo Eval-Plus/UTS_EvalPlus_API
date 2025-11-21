@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import CareerController from '../controllers/career.controller.js';
-import { authenticate } from '../middlewares/auth.middleware.js';
+import { Authenticate } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -25,7 +25,7 @@ router.get('/:id', CareerController.getCareerById);
  * @desc    Obtener estudiantes de una carrera
  * @access  Private (requiere autenticación)
  */
-router.get('/:id/students', authenticate, CareerController.getCareerStudents);
+router.get('/:id/students', Authenticate, CareerController.getCareerStudents);
 
 // Rutas protegidas (requieren autenticación)
 
@@ -34,7 +34,7 @@ router.get('/:id/students', authenticate, CareerController.getCareerStudents);
  * @desc    Crear una nueva carrera
  * @access  Private (Admin)
  */
-router.post('/', authenticate, CareerController.createCareer);
+router.post('/', Authenticate, CareerController.createCareer);
 
 /**
  * @route   POST /api/careers/seed
@@ -48,27 +48,27 @@ router.post('/seed', CareerController.seedCareers);
  * @desc    Inscribir un estudiante en una carrera
  * @access  Private
  */
-router.post('/:id/students', authenticate, CareerController.enrollStudent);
+router.post('/:id/students', Authenticate, CareerController.enrollStudent);
 
 /**
  * @route   PUT /api/careers/:id
  * @desc    Actualizar una carrera
  * @access  Private (Admin)
  */
-router.put('/:id', authenticate, CareerController.updateCareer);
+router.put('/:id', Authenticate, CareerController.updateCareer);
 
 /**
  * @route   DELETE /api/careers/:id
  * @desc    Desactivar una carrera
  * @access  Private (Admin)
  */
-router.delete('/:id', authenticate, CareerController.deleteCareer);
+router.delete('/:id', Authenticate, CareerController.deleteCareer);
 
 /**
  * @route   DELETE /api/careers/:id/students/:studentId
  * @desc    Desinscribir un estudiante de una carrera
  * @access  Private
  */
-router.delete('/:id/students/:studentId', authenticate, CareerController.unenrollStudent);
+router.delete('/:id/students/:studentId', Authenticate, CareerController.unenrollStudent);
 
 export default router;
