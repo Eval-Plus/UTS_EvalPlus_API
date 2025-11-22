@@ -21,8 +21,9 @@ model Student {
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
   
-  // Relación muchos a muchos con Career
+  // Relaciones
   careers           StudentCareer[]
+  subjects          StudentSubject[]
   
   @@map("students")
 }
@@ -38,13 +39,33 @@ model Career {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   
-  // Relación muchos a muchos con Student
+  // Relaciones
   students    StudentCareer[]
+  subjects    Subject[]
   
   @@map("careers")
 }
 
-// Tabla intermedia para la relación muchos a muchos
+model Subject {
+  id            Int      @id @default(autoincrement())
+  nombre        String   @db.VarChar(255)
+  codigo        String   @unique @db.VarChar(50)
+  careerId      Int      @map("career_id")
+  professorName String   @map("professor_name") @db.VarChar(255)
+  semestre      Int      @default(1)
+  descripcion   String?  @db.Text
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  
+  // Relaciones
+  career        Career   @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  students      StudentSubject[]
+  
+  @@map("subjects")
+}
+
+// Tabla intermedia para Student-Career
 model StudentCareer {
   id         Int      @id @default(autoincrement())
   studentId  Int      @map("student_id")
@@ -56,4 +77,18 @@ model StudentCareer {
   
   @@unique([studentId, careerId])
   @@map("student_careers")
+}
+
+// Tabla intermedia para Student-Subject
+model StudentSubject {
+  id         Int      @id @default(autoincrement())
+  studentId  Int      @map("student_id")
+  subjectId  Int      @map("subject_id")
+  enrolledAt DateTime @default(now()) @map("enrolled_at")
+  
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  
+  @@unique([studentId, subjectId])
+  @@map("student_subjects")
 }

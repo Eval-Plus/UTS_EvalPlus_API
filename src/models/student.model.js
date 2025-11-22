@@ -66,6 +66,37 @@ export class StudentModel {
   }
 
   /**
+   * Obtener todas las materias de un estudiante
+   */
+  static async getStudentSubjects(studentId) {
+    const student = await prisma.student.findUnique({
+      where: { id: parseInt(studentId) },
+      include: {
+        subjects: {
+          include: {
+            subject: {
+              include: {
+                career: {
+                  select: {
+                    id: true,
+                    nombre: true,
+                    codigo: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    return student?.subjects.map(ss => ({
+      ...ss.subject,
+      enrolledAt: ss.enrolledAt
+    })) || [];
+  }
+
+  /**
    * Buscar estudiante por identificación
    */
   static async findByIdentificacion(identificacion) {

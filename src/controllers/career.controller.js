@@ -235,7 +235,26 @@ export class CareerController {
    */
   static async seedCareers(req, res) {
     try {
+      // Verificar si ya existen
+      const existingCareers = await CareerModel.findAll();
+
+      if (existingCareers.length >= 5) {
+	return errorResponse(
+	  res,
+	  'Las carreras ya fueron generadas previamente. No se pueden duplicar.',
+	  409
+	);
+      }
+
       const careers = await CareerModel.seedCareers();
+
+      if (careers.length === 0) {
+	return errorResponse(
+	  res,
+	  'No se crearon nuevas carreras (Ya existen)',
+	  200
+	);
+      }
 
       return successResponse(res, {
         message: `${careers.length} carreras creadas exitosamente`,

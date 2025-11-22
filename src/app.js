@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 // Routes
 import authRoutes from './routes/auth.routes.js';
 import careerRoutes from './routes/career.routes.js';
+import subjectRoutes from './routes/subject.routes.js';
 
 const app = express();
 
@@ -58,6 +59,7 @@ app.get('/health', (req, res) => {
 // Rutas API
 app.use('/api/auth', authRoutes);
 app.use('/api/careers', careerRoutes);
+app.use('/api/subjects', subjectRoutes);
 
 // Ruta de prueba
 app.get('/api/test', (req, res) => {
