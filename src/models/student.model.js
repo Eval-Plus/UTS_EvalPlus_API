@@ -29,6 +29,43 @@ export class StudentModel {
   }
 
   /**
+   * Buscar estudiante por ID con sus carreras
+   */
+  static async findByIdWithCareers(id) {
+    return await prisma.student.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        careers: {
+          include: {
+            career: {
+              select: {
+                id: true,
+                nombre: true,
+                codigo: true,
+                icon: true,
+                color: true,
+                descripcion: true
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Obtener todas las carreras de un estudiante
+   */
+  static async getStudentCareers(studentId) {
+    const student = await this.findByIdWithCareers(studentId);
+
+    return student?.careers.map(sc => ({
+      ...sc.career,
+      enrolledAt: sc.enrolledAt
+    })) || [];
+  }
+
+  /**
    * Buscar estudiante por identificación
    */
   static async findByIdentificacion(identificacion) {
@@ -104,36 +141,14 @@ export class StudentModel {
    * Verificar si el perfil está completo
    */
   static isProfileComplete(student) {
-    return Boolean(
-      student.identificacion &&
-      student.carreras.length > 0 &&
-      student.materias.length > 0
-    );
-  }
-
-  /**
-   * Buscar estudiantes por carrera
-   */
-  static async findByCarrera(carrera) {
-    return await prisma.student.findMany({
-      where: {
-        carreras: {
-          has: carrera
-        }
-      }
-    });
-  }
-
-  /**
-   * Buscar estudiantes por materia
-   */
-  static async findByMateria(materia) {
-    return await prisma.student.findMany({
-      where: {
-        materias: {
-          has: materia
-        }
-      }
-    });
+    // Si student tiene la relación 'careers' cargada
+    if (student.careers !== undefined) {
+      return Boolean(
+        student.identificacion &&
+        student.careers.length > 0
+      );
+    }
+    // Si solo tienes el objeto básico, asumimos que necesita completar perfil
+    return Boolean(student.identificacion);
   }
 }

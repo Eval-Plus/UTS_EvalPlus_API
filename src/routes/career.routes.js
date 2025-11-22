@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import CareerController from '../controllers/career.controller.js';
+import { CareerController } from '../controllers/career.controller.js';
 import { Authenticate } from '../middlewares/auth.middleware.js';
 
 const router = Router();

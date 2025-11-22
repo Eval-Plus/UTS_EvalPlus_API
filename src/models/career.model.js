@@ -1,6 +1,6 @@
 import prisma from '../config/prisma.js';
 
-class CareerModel {
+export class CareerModel {
   /**
    * Obtener todas las carreras activas
    */
@@ -200,5 +200,3 @@ class CareerModel {
     return createdCareers;
   }
 }
-
-export default CareerModel;

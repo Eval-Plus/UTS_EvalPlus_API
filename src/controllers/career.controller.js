@@ -1,7 +1,7 @@
-import CareerModel from '../models/career.model.js';
+import { CareerModel } from '../models/career.model.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
-class CareerController {
+export class CareerController {
   /**
    * Obtener todas las carreras
    * GET /api/careers
@@ -247,5 +247,3 @@ class CareerController {
     }
   }
 }
-
-export default CareerController;

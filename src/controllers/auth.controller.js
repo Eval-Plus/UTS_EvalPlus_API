@@ -67,7 +67,13 @@ export class AuthController {
   static async getProfile(req, res) {
     try {
       const userId = req.user.id;
-      const profile = await AuthService.getProfile(userId);
+      const student = await StudentModel.findByIdWithCareers(userId);
+
+      if (!student) {
+	return errorResponse(res, 'Usuario no encontrado', 404);
+      }
+
+      const profile = AuthService.sanitizeUser(student);
 
       return successResponse(
         res,
