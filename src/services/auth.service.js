@@ -70,6 +70,9 @@ export class AuthService {
 	  if (randomCareerIds.length > 0) {
 	    await this.assignCareersToStudent(student.id, randomCareerIds);
 	    console.log(`✅ Se asignaron ${randomCareerIds.length} carreras`);
+
+            // Asignar 3 materias aleatorias por cada carrera
+            await this.assignSubjectsToStudent(student.id, randomCareerIds);
 	  }
         }
       }
@@ -148,6 +151,42 @@ export class AuthService {
     return assignments;
   }
 
+  /**
+   * Asigna materias aleatorias a un estudiante basado en sus carreras
+   */
+  static async assignSubjectsToStudent(studentId, careerIds) {
+    console.log(`📖 Asignando materias al estudiante ${studentId}...`);
+
+    let totalAssigned = 0;
+
+    for (const careerId of careerIds) {
+      try {
+        // Importar SubjectModel dinámicamente para evitar dependencias circulares
+        const { SubjectModel } = await import('../models/subject.model.js');
+
+        // Obtener 3 materias aleatorias de esta carrera
+        const randomSubjectIds = await SubjectModel.getRandomSubjectsByCareer(careerId, 3);
+
+        if (randomSubjectIds.length > 0) {
+          // Inscribir al estudiante en esas materias
+          const enrollments = await SubjectModel.enrollStudentInMultipleSubjects(
+            studentId,
+            randomSubjectIds
+          );
+
+          totalAssigned += enrollments.length;
+          console.log(`  ✅ Asignadas ${enrollments.length} materias de la carrera ${careerId}`);
+        } else {
+          console.log(`  ⚠️  No hay materias disponibles para la carrera ${careerId}`);
+        }
+      } catch (error) {
+        console.error(`  ❌ Error asignando materias de carrera ${careerId}:`, error.message);
+      }
+    }
+
+    console.log(`✅ Total de materias asignadas: ${totalAssigned}`);
+    return totalAssigned;
+  }
 
   /**
    * Obtiene el perfil del usuario autenticado

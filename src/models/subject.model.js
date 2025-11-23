@@ -257,4 +257,56 @@ export class SubjectModel {
 
     return !!enrollment;
   }
+
+  /**
+   * Obtener N materias aleatorias de una carrera
+   */
+  static async getRandomSubjectsByCareer(careerId, count = 3) {
+    const subjects = await prisma.subject.findMany({
+      where: {
+        careerId: parseInt(careerId),
+        activo: true
+      }
+    });
+
+    if (subjects.length === 0) {
+      return [];
+    }
+
+    if (subjects.length <= count) {
+      return subjects.map(s => s.id);
+    }
+
+    // Mezclar y tomar las primeras 'count'
+    const shuffled = subjects
+      .map(subject => ({ subject, sort: Math.random() }))
+      .sort((a, b) => a.sort - b.sort)
+      .map(({ subject }) => subject.id)
+      .slice(0, count);
+
+    return shuffled;
+  }
+
+  /**
+   * Inscribir un estudiante en múltiples materias
+   */
+  static async enrollStudentInMultipleSubjects(studentId, subjectIds) {
+    const enrollments = [];
+
+    for (const subjectId of subjectIds) {
+      try {
+        const isEnrolled = await this.isStudentEnrolled(studentId, subjectId);
+
+        if (!isEnrolled) {
+          const enrollment = await this.enrollStudent(studentId, subjectId);
+          enrollments.push(enrollment);
+        }
+      } catch (error) {
+        console.warn(`No se pudo inscribir en materia ${subjectId}:`, error.message);
+      }
+    }
+
+    return enrollments;
+  }
+
 }
