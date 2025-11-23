@@ -299,25 +299,4 @@ export class SubjectController {
       return errorResponse(res, 'Error al desinscribir al estudiante', 500);
     }
   }
-
-  /**
-   * Seed - Crear materias de prueba
-   * POST /api/subjects/seed
-   * Ruta de desarrollo para poblar la BD
-   */
-  static async seedSubjects(req, res) {
-    try {
-      const subjects = await SubjectModel.seedSubjects();
-
-      return successResponse(
-        res,
-        subjects,
-        `${subjects.length} materias creadas exitosamente`,
-        201
-      );
-    } catch (error) {
-      console.error('Error al crear materias de prueba:', error);
-      return errorResponse(res, 'Error al crear materias de prueba', 500);
-    }
-  }
 }

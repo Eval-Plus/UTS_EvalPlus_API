@@ -49,9 +49,4 @@ router.put('/:id', Authenticate, SubjectController.updateSubject);
 // Eliminar materia
 router.delete('/:id', Authenticate, SubjectController.deleteSubject);
 
-// Seed de materias de prueba (solo desarrollo)
-if (process.env.NODE_ENV === 'development') {
-  router.post('/seed/create', SubjectController.seedSubjects);
-}
-
 export default router;
