@@ -6,10 +6,7 @@ import passport from './config/passport.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Routes
-import authRoutes from './routes/auth.routes.js';
-import careerRoutes from './routes/career.routes.js';
-import subjectRoutes from './routes/subject.routes.js';
+import apiRoutes from './routes/index.js';
 
 const app = express();
 
@@ -47,27 +44,8 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined'));
 }
 
-// Health check
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    service: 'evalplus-api'
-  });
-});
-
-// Rutas API
-app.use('/api/auth', authRoutes);
-app.use('/api/careers', careerRoutes);
-app.use('/api/subjects', subjectRoutes);
-
-// Ruta de prueba
-app.get('/api/test', (req, res) => {
-  res.json({
-    message: 'Eval+ API funcionando correctamente',
-    version: '1.0.0'
-  });
-});
+// Rutas Centralizadas
+app.use('/api', apiRoutes);
 
 // Rutas estaticas especificas
 app.get('/views/auth-callback', (req, res) => {
