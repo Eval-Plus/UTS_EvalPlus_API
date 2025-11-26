@@ -90,15 +90,15 @@ export class CareerModel {
   }
 
   /**
-   * Obtener estudiantes de una carrera
+   * Obtener usuarios de una carrera
    */
-  static async getStudents(careerId) {
+  static async getUsers(careerId) {
     const career = await prisma.career.findUnique({
       where: { id: parseInt(careerId) },
       include: {
-        students: {
+        users: {
           include: {
-            student: {
+            user: {
               select: {
                 id: true,
                 nombreCompleto: true,
@@ -112,91 +112,37 @@ export class CareerModel {
       }
     });
 
-    return career?.students.map(sc => ({
-      ...sc.student,
+    return career?.users.map(sc => ({
+      ...sc.user,
       enrolledAt: sc.enrolledAt
     })) || [];
   }
 
   /**
-   * Inscribir un estudiante en una carrera
+   * Inscribir un usuario en una carrera
    */
-  static async enrollStudent(studentId, careerId) {
-    return await prisma.studentCareer.create({
+  static async enrollUser(userId, careerId) {
+    return await prisma.userCareer.create({
       data: {
-        studentId: parseInt(studentId),
+        userId: parseInt(userId),
         careerId: parseInt(careerId)
       },
       include: {
-        student: true,
+        user: true,
         career: true
       }
     });
   }
 
   /**
-   * Desinscribir un estudiante de una carrera
+   * Desinscribir un usuario de una carrera
    */
-  static async unenrollStudent(studentId, careerId) {
-    return await prisma.studentCareer.deleteMany({
+  static async unenrollUser(userId, careerId) {
+    return await prisma.userCareer.deleteMany({
       where: {
-        studentId: parseInt(studentId),
+        userId: parseInt(userId),
         careerId: parseInt(careerId)
       }
     });
-  }
-
-  /**
-   * Seed inicial - Crear carreras de prueba
-   */
-  static async seedCareers() {
-    const careers = [
-      {
-        nombre: 'Ingeniería de Sistemas',
-        codigo: 'ING-SIS',
-        icon: 'computer',
-        color: '0xFFA8B820',
-        descripcion: 'Carrera enfocada en el desarrollo de software y sistemas informáticos'
-      },
-      {
-        nombre: 'Administración de Empresas',
-        codigo: 'ADM-EMP',
-        icon: 'business_center',
-        color: '0xFFA8B820',
-        descripcion: 'Formación integral en gestión empresarial y administrativa'
-      },
-      {
-        nombre: 'Derecho',
-        codigo: 'DER',
-        icon: 'gavel',
-        color: '0xFFA8B820',
-        descripcion: 'Carrera de ciencias jurídicas y formación legal'
-      },
-      {
-        nombre: 'Contaduría Pública',
-        codigo: 'CON-PUB',
-        icon: 'account_balance',
-        color: '0xFF2E7D32',
-        descripcion: 'Especialización en contabilidad, auditoría y finanzas'
-      },
-      {
-        nombre: 'Ingeniería Industrial',
-        codigo: 'ING-IND',
-        icon: 'precision_manufacturing',
-        color: '0xFFD32F2F',
-        descripcion: 'Optimización de procesos productivos y gestión industrial'
-      }
-    ];
-
-    const createdCareers = [];
-    for (const career of careers) {
-      const existing = await this.findByCode(career.codigo);
-      if (!existing) {
-        const created = await this.create(career);
-        createdCareers.push(created);
-      }
-    }
-
-    return createdCareers;
   }
 }

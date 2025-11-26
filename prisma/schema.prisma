@@ -10,7 +10,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Student {
+// Usuario base - para TODOS (estudiantes, profesores, admins)
+model User {
   id                Int       @id @default(autoincrement())
   microsoftId       String?   @unique @map("microsoft_id") @db.VarChar(255)
   nombreCompleto    String    @map("nombre_completo") @db.VarChar(255)
@@ -22,10 +23,39 @@ model Student {
   updatedAt         DateTime  @updatedAt @map("updated_at")
   
   // Relaciones
-  careers           StudentCareer[]
-  subjects          StudentSubject[]
+  roles             UserRole[]
+  careers           UserCareer[]
+  subjects          UserSubject[]
+  taughtSubjects    Subject[] @relation("TeacherSubjects")
   
-  @@map("students")
+  @@map("users")
+}
+
+// Sistema de roles
+model Role {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique @db.VarChar(50)
+  displayName String     @map("display_name") @db.VarChar(100)
+  description String?    @db.Text
+  createdAt   DateTime   @default(now()) @map("created_at")
+  
+  users       UserRole[]
+  
+  @@map("roles")
+}
+
+// Tabla intermedia User-Role
+model UserRole {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  roleId     Int      @map("role_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, roleId])
+  @@map("user_roles")
 }
 
 model Career {
@@ -39,9 +69,8 @@ model Career {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   
-  // Relaciones
-  students    StudentCareer[]
-  subjects    Subject[]
+  users    UserCareer[]
+  subjects Subject[]
   
   @@map("careers")
 }
@@ -51,44 +80,44 @@ model Subject {
   nombre        String   @db.VarChar(255)
   codigo        String   @unique @db.VarChar(50)
   careerId      Int      @map("career_id")
-  professorName String   @map("professor_name") @db.VarChar(255)
+  teacherId     Int?     @map("teacher_id")
   semestre      Int      @default(1)
   descripcion   String?  @db.Text
   activo        Boolean  @default(true)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
   
-  // Relaciones
-  career        Career   @relation(fields: [careerId], references: [id], onDelete: Cascade)
-  students      StudentSubject[]
+  career   Career        @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  teacher  User?         @relation("TeacherSubjects", fields: [teacherId], references: [id], onDelete: SetNull)
+  students UserSubject[]
   
   @@map("subjects")
 }
 
-// Tabla intermedia para Student-Career
-model StudentCareer {
+// Tabla intermedia User-Career (reemplaza StudentCareer)
+model UserCareer {
   id         Int      @id @default(autoincrement())
-  studentId  Int      @map("student_id")
+  userId     Int      @map("user_id")
   careerId   Int      @map("career_id")
   enrolledAt DateTime @default(now()) @map("enrolled_at")
   
-  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  career     Career   @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  career  Career  @relation(fields: [careerId], references: [id], onDelete: Cascade)
   
-  @@unique([studentId, careerId])
-  @@map("student_careers")
+  @@unique([userId, careerId])
+  @@map("user_careers")
 }
 
-// Tabla intermedia para Student-Subject
-model StudentSubject {
+// Tabla intermedia User-Subject (reemplaza StudentSubject)
+model UserSubject {
   id         Int      @id @default(autoincrement())
-  studentId  Int      @map("student_id")
+  userId     Int      @map("user_id")
   subjectId  Int      @map("subject_id")
   enrolledAt DateTime @default(now()) @map("enrolled_at")
   
-  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   
-  @@unique([studentId, subjectId])
-  @@map("student_subjects")
+  @@unique([userId, subjectId])
+  @@map("user_subjects")
 }

@@ -1,7 +1,7 @@
 import { AuthService } from '../services/auth.service.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
-import { StudentModel } from '../models/student.model.js';
+import { UserModel } from '../models/user.model.js';
 
 import jwt from 'jsonwebtoken';
 
@@ -67,13 +67,13 @@ export class AuthController {
   static async getProfile(req, res) {
     try {
       const userId = req.user.id;
-      const student = await StudentModel.findByIdWithCareers(userId);
+      const user = await UserModel.findByIdWithCareers(userId);
 
-      if (!student) {
-	return errorResponse(res, 'Usuario no encontrado', 404);
+      if (!user) {
+	      return errorResponse(res, 'Usuario no encontrado', 404);
       }
 
-      const profile = AuthService.sanitizeUser(student);
+      const profile = AuthService.sanitizeUser(user);
 
       return successResponse(
         res,
@@ -176,7 +176,7 @@ export class AuthController {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       // Opcional: Verificar que el usuario aún existe en la BD
-      const user = await StudentModel.findById(decoded.id);
+      const user = await UserModel.findById(decoded.id);
 
       if (!user) {
         return errorResponse(res, 'Usuario no encontrado', 404);

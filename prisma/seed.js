@@ -3,6 +3,34 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 /**
+ * Seed de Roles
+ */
+async function seedRoles() {
+  console.log('🌱 Seeding roles...');
+
+  const roles = [
+    { name: 'STUDENT', displayName: 'Estudiante', description: 'Usuario con rol de estudiante' },
+    { name: 'TEACHER', displayName: 'Profesor', description: 'Usuario con rol de profesor' },
+    { name: 'ADMIN', displayName: 'Administrador', description: 'Usuario con permisos administrativos' }
+  ];
+
+  for (const role of roles) {
+    const existing = await prisma.role.findUnique({
+      where: { name: role.name }
+    });
+
+    if (!existing) {
+      await prisma.role.create({ data: role });
+      console.log(`  ✅ Rol creado: ${role.displayName}`);
+    } else {
+      console.log(`  ⏭️  Rol ya existe: ${role.displayName}`);
+    }
+  }
+
+  console.log('✅ Roles procesados\n');
+}
+
+/**
  * Seed de Carreras
  */
 async function seedCareers() {
@@ -92,42 +120,36 @@ async function seedSubjects() {
       {
         nombre: 'Fundamentos de Programación',
         codigo: 'SIS-101',
-        professorName: 'Dr. Roberto Silva',
         semestre: 1,
         descripcion: 'Introducción a los conceptos básicos de programación y algoritmos'
       },
       {
         nombre: 'Estructuras de Datos',
         codigo: 'SIS-201',
-        professorName: 'Ing. Carlos Rodríguez',
         semestre: 2,
         descripcion: 'Estudio de estructuras de datos fundamentales: listas, pilas, colas, árboles'
       },
       {
         nombre: 'Programación Orientada a Objetos',
         codigo: 'SIS-301',
-        professorName: 'Dr. Juan Pérez',
         semestre: 3,
         descripcion: 'Paradigma de programación orientada a objetos con Java y Python'
       },
       {
         nombre: 'Bases de Datos',
         codigo: 'SIS-401',
-        professorName: 'Dra. María García',
         semestre: 4,
         descripcion: 'Diseño, implementación y gestión de bases de datos relacionales'
       },
       {
         nombre: 'Desarrollo Web',
         codigo: 'SIS-501',
-        professorName: 'Ing. Ana Martínez',
         semestre: 5,
         descripcion: 'Desarrollo de aplicaciones web con HTML, CSS, JavaScript y frameworks modernos'
       },
       {
         nombre: 'Ingeniería de Software',
         codigo: 'SIS-601',
-        professorName: 'Dr. Luis Fernández',
         semestre: 6,
         descripcion: 'Metodologías ágiles, arquitectura de software y gestión de proyectos'
       }
@@ -136,42 +158,36 @@ async function seedSubjects() {
       {
         nombre: 'Introducción a la Administración',
         codigo: 'ADM-101',
-        professorName: 'Dr. Fernando López',
         semestre: 1,
         descripcion: 'Conceptos fundamentales de la administración empresarial'
       },
       {
         nombre: 'Contabilidad General',
         codigo: 'ADM-201',
-        professorName: 'Dra. Patricia Morales',
         semestre: 2,
         descripcion: 'Principios básicos de contabilidad y estados financieros'
       },
       {
         nombre: 'Marketing Estratégico',
         codigo: 'ADM-301',
-        professorName: 'Ing. Roberto Sánchez',
         semestre: 3,
         descripcion: 'Estrategias de marketing y comportamiento del consumidor'
       },
       {
         nombre: 'Gestión de Recursos Humanos',
         codigo: 'ADM-401',
-        professorName: 'Dra. Carmen Díaz',
         semestre: 4,
         descripcion: 'Administración del talento humano en las organizaciones'
       },
       {
         nombre: 'Finanzas Corporativas',
         codigo: 'ADM-501',
-        professorName: 'Dr. Miguel Torres',
         semestre: 5,
         descripcion: 'Análisis financiero y decisiones de inversión empresarial'
       },
       {
         nombre: 'Dirección Estratégica',
         codigo: 'ADM-601',
-        professorName: 'Dr. Alberto Ramírez',
         semestre: 6,
         descripcion: 'Planeación estratégica y toma de decisiones gerenciales'
       }
@@ -180,42 +196,36 @@ async function seedSubjects() {
       {
         nombre: 'Introducción al Derecho',
         codigo: 'DER-101',
-        professorName: 'Dr. Jaime Castro',
         semestre: 1,
         descripcion: 'Fundamentos del derecho y sistemas jurídicos'
       },
       {
         nombre: 'Derecho Civil I',
         codigo: 'DER-201',
-        professorName: 'Dra. Lucía Vargas',
         semestre: 2,
         descripcion: 'Personas, familia y obligaciones civiles'
       },
       {
         nombre: 'Derecho Penal I',
         codigo: 'DER-301',
-        professorName: 'Dr. Ricardo Mendoza',
         semestre: 3,
         descripcion: 'Teoría del delito y derecho penal general'
       },
       {
         nombre: 'Derecho Constitucional',
         codigo: 'DER-401',
-        professorName: 'Dra. Sandra Romero',
         semestre: 4,
         descripcion: 'Estructura del Estado y derechos fundamentales'
       },
       {
         nombre: 'Derecho Laboral',
         codigo: 'DER-501',
-        professorName: 'Dr. Eduardo Núñez',
         semestre: 5,
         descripcion: 'Relaciones laborales y derecho del trabajo'
       },
       {
         nombre: 'Derecho Procesal',
         codigo: 'DER-601',
-        professorName: 'Dr. Mauricio Herrera',
         semestre: 6,
         descripcion: 'Procedimientos judiciales y proceso civil'
       }
@@ -224,42 +234,36 @@ async function seedSubjects() {
       {
         nombre: 'Fundamentos de Contabilidad',
         codigo: 'CON-101',
-        professorName: 'Dra. Gloria Méndez',
         semestre: 1,
         descripcion: 'Principios contables y ciclo contable básico'
       },
       {
         nombre: 'Contabilidad Financiera',
         codigo: 'CON-201',
-        professorName: 'Dr. Sergio Gutiérrez',
         semestre: 2,
         descripcion: 'Estados financieros y normas contables internacionales'
       },
       {
         nombre: 'Costos y Presupuestos',
         codigo: 'CON-301',
-        professorName: 'Ing. Martha Salazar',
         semestre: 3,
         descripcion: 'Contabilidad de costos y elaboración de presupuestos'
       },
       {
         nombre: 'Auditoría I',
         codigo: 'CON-401',
-        professorName: 'Dr. Carlos Peña',
         semestre: 4,
         descripcion: 'Fundamentos de auditoría y control interno'
       },
       {
         nombre: 'Tributación',
         codigo: 'CON-501',
-        professorName: 'Dra. Diana Rojas',
         semestre: 5,
         descripcion: 'Sistema tributario y obligaciones fiscales'
       },
       {
         nombre: 'Revisoría Fiscal',
         codigo: 'CON-601',
-        professorName: 'Dr. Andrés Jiménez',
         semestre: 6,
         descripcion: 'Funciones del revisor fiscal y dictamen contable'
       }
@@ -268,42 +272,36 @@ async function seedSubjects() {
       {
         nombre: 'Introducción a la Ingeniería Industrial',
         codigo: 'IND-101',
-        professorName: 'Ing. Jorge Acosta',
         semestre: 1,
         descripcion: 'Fundamentos de la ingeniería industrial y sus aplicaciones'
       },
       {
         nombre: 'Estadística Industrial',
         codigo: 'IND-201',
-        professorName: 'Dra. Sofía Paredes',
         semestre: 2,
         descripcion: 'Métodos estadísticos aplicados a la industria'
       },
       {
         nombre: 'Estudio del Trabajo',
         codigo: 'IND-301',
-        professorName: 'Ing. Daniel Ortiz',
         semestre: 3,
         descripcion: 'Análisis de métodos y medición del trabajo'
       },
       {
         nombre: 'Gestión de Producción',
         codigo: 'IND-401',
-        professorName: 'Dr. Felipe Chávez',
         semestre: 4,
         descripcion: 'Planificación y control de la producción industrial'
       },
       {
         nombre: 'Logística y Cadena de Suministro',
         codigo: 'IND-501',
-        professorName: 'Ing. Laura Vega',
         semestre: 5,
         descripcion: 'Gestión de la cadena de suministro y distribución'
       },
       {
         nombre: 'Gestión de Calidad',
         codigo: 'IND-601',
-        professorName: 'Dr. Héctor Maldonado',
         semestre: 6,
         descripcion: 'Sistemas de gestión de calidad y mejora continua'
       }
@@ -353,10 +351,13 @@ async function main() {
   console.log('\n🚀 Iniciando seed de la base de datos...\n');
 
   try {
-    // Seed de carreras primero
+    // Seed de roles
+    await seedRoles();
+  
+    // Seed de carreras
     await seedCareers();
 
-    // Luego seed de materias
+    // seed de materias
     await seedSubjects();
 
     console.log('🎉 Seed completado exitosamente!\n');

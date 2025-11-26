@@ -1,4 +1,4 @@
-import { StudentModel } from '../models/student.model.js';
+import { UserModel } from '../models/user.model.js';
 import { CareerModel } from '../models/career.model.js';
 import { generateToken } from '../utils/jwt.js';
 
@@ -22,16 +22,16 @@ export class AuthService {
       }
 
       // Variables para tracking del flujo
-      let student;
+      let user;
       let isNewUser = false;
 
       // Buscar si el estudiante ya existe por Microsoft ID
-      student = await StudentModel.findByMicrosoftId(microsoftId);
+      user = await UserModel.findByMicrosoftId(microsoftId);
 
-      if (student) {
+      if (user) {
         // CASO 1: Usuario existente con cuenta de Microsoft vinculada
         // Solo actualizamos su información básica
-        student = await StudentModel.update(student.id, {
+        user = await UserModel.update(user.id, {
           nombreCompleto,
           profilePicture,
           updatedAt: new Date()
@@ -39,12 +39,12 @@ export class AuthService {
       } else {
         // Usuario no encontrado por Microsoft ID
         // Verificar si existe una cuenta con ese email
-        const existingByEmail = await StudentModel.findByEmail(email);
+        const existingByEmail = await UserModel.findByEmail(email);
 
         if (existingByEmail) {
           // CASO 2: Usuario existente sin Microsoft vinculado
           // Vinculamos su cuenta de Microsoft con la cuenta existente
-          student = await StudentModel.update(existingByEmail.id, {
+          user = await UserModel.update(existingByEmail.id, {
             microsoftId,
             nombreCompleto,
             profilePicture,
@@ -53,7 +53,7 @@ export class AuthService {
         } else {
           // CASO 3: Usuario completamente nuevo
           // Creamos una nueva cuenta
-          student = await StudentModel.create({
+          user = await UserModel.create({
             microsoftId,
             email,
             nombreCompleto,
@@ -63,43 +63,43 @@ export class AuthService {
           isNewUser = true;
 
 	  // Add: Asignar dos carreras aleatorias
-	  console.log(`📚 Asignando carreras al nuevo estudiante ${student.id}...`);
+	  console.log(`📚 Asignando carreras al nuevo estudiante ${user.id}...`);
 
 	  const randomCareerIds = await this.getRandomCareers(2);
 
 	  if (randomCareerIds.length > 0) {
-	    await this.assignCareersToStudent(student.id, randomCareerIds);
+	    await this.assignCareersToUser(user.id, randomCareerIds);
 	    console.log(`✅ Se asignaron ${randomCareerIds.length} carreras`);
 
             // Asignar 3 materias aleatorias por cada carrera
-            await this.assignSubjectsToStudent(student.id, randomCareerIds);
+            await this.assignSubjectsToUser(user.id, randomCareerIds);
 	  }
         }
       }
 
       // Verificar si el perfil está completo
-      const isProfileComplete = StudentModel.isProfileComplete(student);
+      const isProfileComplete = UserModel.isProfileComplete(user);
 
-      if (student.isProfileComplete !== isProfileComplete) {
-        student = await StudentModel.update(student.id, {
+      if (user.isProfileComplete !== isProfileComplete) {
+        user = await UserModel.update(user.id, {
           isProfileComplete
         });
       }
 
       // Generar token JWT
       const token = generateToken({
-        id: student.id,
-        email: student.email,
-        microsoftId: student.microsoftId,
-        isProfileComplete: student.isProfileComplete
+        id: user.id,
+        email: user.email,
+        microsoftId: user.microsoftId,
+        isProfileComplete: user.isProfileComplete
       });
 
       // Obtener estudiante completo con carreras
-      const studentWithCareers = await StudentModel.findByIdWithCareers(student.id);
+      const userWithCareers = await UserModel.findByIdWithCareers(student.id);
 
       return {
         token,
-        user: this.sanitizeUser(student),
+        user: this.sanitizeUser(user),
         isNewUser
       };
     } catch (error) {
@@ -136,12 +136,12 @@ export class AuthService {
   /**
    * Asigna carreras a un estudiante
    */
-  static async assignCareersToStudent(studentId, careerIds) {
+  static async assignCareersToUser(userId, careerIds) {
     const assignments = [];
 
     for (const careerId of careerIds) {
       try {
-        const enrollment = await CareerModel.enrollStudent(studentId, careerId);
+        const enrollment = await CareerModel.enrollUser(userId, careerId);
         assignments.push(enrollment);
       } catch (error) {
         console.warn(`No se pudo asignar carrera ${careerId}:`, error.message);
@@ -154,8 +154,8 @@ export class AuthService {
   /**
    * Asigna materias aleatorias a un estudiante basado en sus carreras
    */
-  static async assignSubjectsToStudent(studentId, careerIds) {
-    console.log(`📖 Asignando materias al estudiante ${studentId}...`);
+  static async assignSubjectsToUser(userId, careerIds) {
+    console.log(`📖 Asignando materias al estudiante ${UserId}...`);
 
     let totalAssigned = 0;
 
@@ -169,8 +169,8 @@ export class AuthService {
 
         if (randomSubjectIds.length > 0) {
           // Inscribir al estudiante en esas materias
-          const enrollments = await SubjectModel.enrollStudentInMultipleSubjects(
-            studentId,
+          const enrollments = await SubjectModel.enrollUserInMultipleSubjects(
+            userId,
             randomSubjectIds
           );
 
@@ -195,13 +195,13 @@ export class AuthService {
    */
   static async getProfile(userId) {
     try {
-      const student = await StudentModel.findById(userId);
+      const user = await UserModel.findById(userId);
 
-      if (!student) {
+      if (!user) {
         throw new Error('Usuario no encontrado');
       }
 
-      return this.sanitizeUser(student);
+      return this.sanitizeUser(user);
     } catch (error) {
       console.error('Error en getProfile:', error);
       throw error;
@@ -232,19 +232,19 @@ export class AuthService {
       }
 
       // Actualizar usuario
-      const student = await StudentModel.update(userId, updateData);
+      const user = await UserModel.update(userId, updateData);
 
       // Verificar si el perfil está completo
-      const isProfileComplete = StudentModel.isProfileComplete(student);
+      const isProfileComplete = UserModel.isProfileComplete(user);
       
-      if (student.isProfileComplete !== isProfileComplete) {
-        await StudentModel.update(userId, { isProfileComplete });
+      if (user.isProfileComplete !== isProfileComplete) {
+        await UserModel.update(userId, { isProfileComplete });
       }
 
       // Obtener usuario actualizado
-      const updatedStudent = await StudentModel.findById(userId);
+      const updatedUser = await UserModel.findById(userId);
 
-      return this.sanitizeUser(updatedStudent);
+      return this.sanitizeUser(updatedUser);
     } catch (error) {
       console.error('Error en updateProfile:', error);
       throw error;
@@ -256,8 +256,8 @@ export class AuthService {
    * @param {Object} student - Objeto estudiante
    * @returns {Object} Usuario sanitizado
    */
-  static sanitizeUser(student) {
-    const { microsoftId, ...userData } = student;
+  static sanitizeUser(user) {
+    const { microsoftId, ...userData } = user;
 
     return {
       ...userData,

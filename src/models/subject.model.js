@@ -184,15 +184,15 @@ export class SubjectModel {
   }
 
   /**
-   * Obtener estudiantes inscritos en una materia
+   * Obtener usuarios inscritos en una materia
    */
-  static async getStudents(subjectId) {
+  static async getUsers(subjectId) {
     const subject = await prisma.subject.findUnique({
       where: { id: parseInt(subjectId) },
       include: {
         students: {
           include: {
-            student: {
+            user: {
               select: {
                 id: true,
                 nombreCompleto: true,
@@ -206,23 +206,23 @@ export class SubjectModel {
       }
     });
 
-    return subject?.students.map(ss => ({
+    return subject?.user.map(ss => ({
       ...ss.student,
       enrolledAt: ss.enrolledAt
     })) || [];
   }
 
   /**
-   * Inscribir un estudiante en una materia
+   * Inscribir un usuario en una materia
    */
-  static async enrollStudent(studentId, subjectId) {
-    return await prisma.studentSubject.create({
+  static async enrollUser(userId, subjectId) {
+    return await prisma.userSubject.create({
       data: {
-        studentId: parseInt(studentId),
+        userId: parseInt(userId),
         subjectId: parseInt(subjectId)
       },
       include: {
-        student: true,
+        user: true,
         subject: {
           include: {
             career: true
@@ -233,12 +233,12 @@ export class SubjectModel {
   }
 
   /**
-   * Desinscribir un estudiante de una materia
+   * Desinscribir un usuario de una materia
    */
-  static async unenrollStudent(studentId, subjectId) {
-    return await prisma.studentSubject.deleteMany({
+  static async unenrollUser(userId, subjectId) {
+    return await prisma.userSubject.deleteMany({
       where: {
-        studentId: parseInt(studentId),
+        userId: parseInt(userId),
         subjectId: parseInt(subjectId)
       }
     });
@@ -247,10 +247,10 @@ export class SubjectModel {
   /**
    * Verificar si un estudiante está inscrito en una materia
    */
-  static async isStudentEnrolled(studentId, subjectId) {
-    const enrollment = await prisma.studentSubject.findFirst({
+  static async isUserEnrolled(userId, subjectId) {
+    const enrollment = await prisma.userSubject.findFirst({
       where: {
-        studentId: parseInt(studentId),
+        userId: parseInt(userId),
         subjectId: parseInt(subjectId)
       }
     });
@@ -288,17 +288,17 @@ export class SubjectModel {
   }
 
   /**
-   * Inscribir un estudiante en múltiples materias
+   * Inscribir un usuario en múltiples materias
    */
-  static async enrollStudentInMultipleSubjects(studentId, subjectIds) {
+  static async enrollUserInMultipleSubjects(userId, subjectIds) {
     const enrollments = [];
 
     for (const subjectId of subjectIds) {
       try {
-        const isEnrolled = await this.isStudentEnrolled(studentId, subjectId);
+        const isEnrolled = await this.isUserEnrolled(userId, subjectId);
 
         if (!isEnrolled) {
-          const enrollment = await this.enrollStudent(studentId, subjectId);
+          const enrollment = await this.enrollUser(userId, subjectId);
           enrollments.push(enrollment);
         }
       } catch (error) {
