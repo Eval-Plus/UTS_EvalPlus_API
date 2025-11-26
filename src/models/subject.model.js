@@ -131,6 +131,46 @@ export class SubjectModel {
   }
 
   /**
+   * 🆕 Obtener materias sin profesor asignado
+   * @returns {Array} Lista de materias sin profesor
+   */
+  static async findSubjectsWithoutTeacher() {
+    return await prisma.subject.findMany({
+      where: {
+        teacherId: null,
+        activo: true
+      },
+      include: {
+        career: {
+          select: {
+            id: true,
+            nombre: true,
+            codigo: true
+          }
+        }
+      },
+      orderBy: [
+        { semestre: 'asc' },
+        { nombre: 'asc' }
+      ]
+    });
+  }
+
+  /**
+   * 🆕 Obtener el número de estudiantes inscritos en una materia
+   * @param {number} subjectId - ID de la materia
+   * @returns {number} Cantidad de estudiantes
+   */
+  static async getStudentCount(subjectId) {
+    const count = await prisma.userSubject.count({
+      where: {
+        subjectId: parseInt(subjectId)
+      }
+    });
+    return count;
+  }
+
+  /**
    * Crear una nueva materia
    */
   static async create(data) {
@@ -159,18 +199,33 @@ export class SubjectModel {
     if (data.nombre !== undefined) updateData.nombre = data.nombre;
     if (data.codigo !== undefined) updateData.codigo = data.codigo;
     if (data.careerId !== undefined) updateData.careerId = parseInt(data.careerId);
-    if (data.professorName !== undefined) updateData.professorName = data.professorName;
+    if (data.teacherId !== undefined) {
+      // Permitir null para quitar profesor
+      updateData.teacherId = data.teacherId === null ? null : parseInt(data.teacherId);
+    }
     if (data.semestre !== undefined) updateData.semestre = parseInt(data.semestre);
     if (data.descripcion !== undefined) updateData.descripcion = data.descripcion;
     if (data.activo !== undefined) updateData.activo = data.activo;
 
-    return await prisma.subject.update({
+    // 🔥 IMPORTANTE: Asegurarse de que realmente se hace el UPDATE
+    const updated = await prisma.subject.update({
       where: { id: parseInt(id) },
       data: updateData,
       include: {
-        career: true
+        career: true,
+        teacher: {
+          select: {
+            id: true,
+            nombreCompleto: true,
+            email: true
+          }
+        }
       }
     });
+
+    console.log(`✅ Materia ${updated.nombre} actualizada - Profesor ID: ${updated.teacherId}`);
+
+    return updated;
   }
 
   /**

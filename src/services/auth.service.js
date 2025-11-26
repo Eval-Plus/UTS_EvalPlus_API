@@ -1,5 +1,6 @@
 import { UserModel } from '../models/user.model.js';
 import { CareerModel } from '../models/career.model.js';
+import { SubjectModel } from '../models/subject.model.js';
 import { generateToken } from '../utils/jwt.js';
 
 export class AuthService {
@@ -25,7 +26,7 @@ export class AuthService {
       let user;
       let isNewUser = false;
 
-      // Buscar si el estudiante ya existe por Microsoft ID
+      // Buscar si el usuario ya existe por Microsoft ID
       user = await UserModel.findByMicrosoftId(microsoftId);
 
       if (user) {
@@ -62,18 +63,23 @@ export class AuthService {
           });
           isNewUser = true;
 
-	  // Add: Asignar dos carreras aleatorias
-	  console.log(`📚 Asignando carreras al nuevo estudiante ${user.id}...`);
+          // 🆕 DETECTAR ROL BASADO EN EL EMAIL
+          const isTeacher = this.isTeacherEmail(email);
+          const roleName = isTeacher ? 'TEACHER' : 'STUDENT';
 
-	  const randomCareerIds = await this.getRandomCareers(2);
+          console.log(`👤 Nuevo usuario detectado: ${email}`);
+          console.log(`🎭 Rol asignado: ${roleName}`);
 
-	  if (randomCareerIds.length > 0) {
-	    await this.assignCareersToUser(user.id, randomCareerIds);
-	    console.log(`✅ Se asignaron ${randomCareerIds.length} carreras`);
+          // Asignar rol al usuario
+          await UserModel.assignRole(user.id, roleName);
 
-            // Asignar 3 materias aleatorias por cada carrera
-            await this.assignSubjectsToUser(user.id, randomCareerIds);
-	  }
+          if (isTeacher) {
+            // 🧑‍🏫 LÓGICA PARA PROFESORES
+            await this.setupTeacherProfile(user.id);
+          } else {
+            // 👨‍🎓 LÓGICA PARA ESTUDIANTES
+            await this.setupStudentProfile(user.id);
+          }
         }
       }
 
@@ -94,17 +100,126 @@ export class AuthService {
         isProfileComplete: user.isProfileComplete
       });
 
-      // Obtener estudiante completo con carreras
+      // Obtener usuario completo con carreras
       const userWithCareers = await UserModel.findByIdWithCareers(user.id);
 
       return {
         token,
-        user: this.sanitizeUser(user),
+        user: this.sanitizeUser(userWithCareers),
         isNewUser
       };
     } catch (error) {
       console.error('Error en processOAuthUser:', error);
       throw error;
+    }
+  }
+
+  /**
+   * 🆕 Detecta si el email corresponde a un profesor
+   * @param {string} email - Email del usuario
+   * @returns {boolean} True si es profesor
+   */
+  static isTeacherEmail(email) {
+    if (!email || typeof email !== 'string') {
+      return false;
+    }
+    
+    // Convertir a minúsculas para comparación case-insensitive
+    const emailLower = email.toLowerCase();
+    
+    // Detectar si contiene la palabra "profesor" o "teacher"
+    return emailLower.includes('profesor') || emailLower.includes('teacher');
+  }
+
+  /**
+   * 🆕 Configura el perfil inicial de un estudiante
+   * @param {number} userId - ID del usuario
+   */
+  static async setupStudentProfile(userId) {
+    console.log(`📚 Configurando perfil de estudiante para usuario ${userId}...`);
+
+    // Asignar dos carreras aleatorias
+    const randomCareerIds = await this.getRandomCareers(2);
+
+    if (randomCareerIds.length > 0) {
+      await this.assignCareersToUser(userId, randomCareerIds);
+      console.log(`✅ Se asignaron ${randomCareerIds.length} carreras`);
+
+      // Asignar 3 materias aleatorias por cada carrera
+      await this.assignSubjectsToUser(userId, randomCareerIds);
+    }
+  }
+
+  /**
+   * 🆕 Configura el perfil inicial de un profesor
+   * @param {number} userId - ID del usuario
+   */
+  static async setupTeacherProfile(userId) {
+    console.log(`🧑‍🏫 Configurando perfil de profesor para usuario ${userId}...`);
+
+    try {
+      // Buscar materias sin profesor asignado que tengan estudiantes inscritos
+      const subjectsToAssign = await this.findSubjectsNeedingTeacher();
+
+      if (subjectsToAssign.length === 0) {
+        console.log('⚠️  No hay materias disponibles para asignar');
+        return;
+      }
+
+      // Asignar el profesor a esas materias
+      let assignedCount = 0;
+      for (const subject of subjectsToAssign) {
+        try {
+          console.log(`  🔄 Intentando asignar materia ${subject.id}: ${subject.nombre}...`);
+          
+          const updatedSubject = await SubjectModel.update(subject.id, {
+            teacherId: userId
+          });
+          
+          assignedCount++;
+          console.log(`  ✅ Asignado como profesor de: ${subject.nombre} (ID: ${subject.id}, TeacherID: ${updatedSubject.teacherId})`);
+        } catch (error) {
+          console.error(`  ❌ Error asignando materia ${subject.id}:`, error.message);
+          console.error(`  Stack:`, error.stack);
+        }
+      }
+
+      console.log(`✅ Profesor asignado a ${assignedCount} materias`);
+      
+      // 🔍 Verificación adicional: Consultar las materias asignadas
+      const verifySubjects = await SubjectModel.findAll();
+      const teacherSubjects = verifySubjects.filter(s => s.teacherId === userId);
+      console.log(`🔍 Verificación: Profesor tiene ${teacherSubjects.length} materias asignadas en BD`);
+      
+    } catch (error) {
+      console.error('Error en setupTeacherProfile:', error);
+      console.error('Stack completo:', error.stack);
+    }
+  }
+
+  /**
+   * 🆕 Busca materias sin profesor que tengan estudiantes inscritos
+   * @returns {Array} Lista de materias
+   */
+  static async findSubjectsNeedingTeacher() {
+    try {
+      const subjects = await SubjectModel.findSubjectsWithoutTeacher();
+      
+      // Filtrar solo las que tienen estudiantes inscritos
+      const subjectsWithStudents = [];
+      
+      for (const subject of subjects) {
+        const studentCount = await SubjectModel.getStudentCount(subject.id);
+        if (studentCount > 0) {
+          subjectsWithStudents.push(subject);
+        }
+      }
+
+      console.log(`📊 Materias sin profesor con estudiantes: ${subjectsWithStudents.length}`);
+      return subjectsWithStudents;
+    } catch (error) {
+      console.error('Error buscando materias sin profesor:', error);
+      return [];
     }
   }
 
@@ -134,7 +249,7 @@ export class AuthService {
   }
 
   /**
-   * Asigna carreras a un estudiante
+   * Asigna carreras a un usuario
    */
   static async assignCareersToUser(userId, careerIds) {
     const assignments = [];
@@ -161,9 +276,6 @@ export class AuthService {
 
     for (const careerId of careerIds) {
       try {
-        // Importar SubjectModel dinámicamente para evitar dependencias circulares
-        const { SubjectModel } = await import('../models/subject.model.js');
-
         // Obtener 3 materias aleatorias de esta carrera
         const randomSubjectIds = await SubjectModel.getRandomSubjectsByCareer(careerId, 3);
 
@@ -209,7 +321,7 @@ export class AuthService {
   }
 
   /**
-   * Actualiza el perfil del estudiante
+   * Actualiza el perfil del usuario
    * @param {number} userId - ID del usuario
    * @param {Object} data - Datos a actualizar
    * @returns {Object} Usuario actualizado
@@ -253,7 +365,7 @@ export class AuthService {
 
   /**
    * Remueve información sensible del usuario
-   * @param {Object} student - Objeto estudiante
+   * @param {Object} user - Objeto usuario
    * @returns {Object} Usuario sanitizado
    */
   static sanitizeUser(user) {
