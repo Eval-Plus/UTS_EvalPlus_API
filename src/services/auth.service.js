@@ -95,7 +95,7 @@ export class AuthService {
       });
 
       // Obtener estudiante completo con carreras
-      const userWithCareers = await UserModel.findByIdWithCareers(student.id);
+      const userWithCareers = await UserModel.findByIdWithCareers(user.id);
 
       return {
         token,
@@ -155,7 +155,7 @@ export class AuthService {
    * Asigna materias aleatorias a un estudiante basado en sus carreras
    */
   static async assignSubjectsToUser(userId, careerIds) {
-    console.log(`📖 Asignando materias al estudiante ${UserId}...`);
+    console.log(`📖 Asignando materias al estudiante ${userId}...`);
 
     let totalAssigned = 0;
 
@@ -262,7 +262,7 @@ export class AuthService {
     return {
       ...userData,
       hasMicrosoftAccount: Boolean(microsoftId),
-      careers: student.careers?.map(sc => ({
+      careers: user.careers?.map(sc => ({
         id: sc.career.id,
         nombre: sc.career.nombre,
         codigo: sc.career.codigo,
