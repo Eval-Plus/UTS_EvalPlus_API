@@ -28,6 +28,22 @@ export class SubjectController {
   }
 
   /**
+    * Obtener todas las materias de un usuario
+    * GET /api/subjects/my
+  */
+  static async getMySubjects(req, res) {
+    try {
+      const userId = req.user.id;
+      const subjects = await SubjectService.getUserSubjects(userId);
+
+      return successResponse(res, subjects);
+    } catch (error) {
+      console.error("🔥 ERROR en /api/subjects/my:", error);
+      return errorResponse(res, error);
+    }
+  }
+
+  /**
    * Obtener una materia por ID
    * GET /api/subjects/:id
    */

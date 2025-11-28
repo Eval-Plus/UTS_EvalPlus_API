@@ -26,6 +26,22 @@ export class SubjectModel {
   }
 
   /**
+   * Obtener todas las materias de un usuario
+   */
+  static async getSubjectsByUserId(userId) {
+    return await prisma.subject.findMany({
+      where: { students: { some: { userId } } },
+      select: {
+        id: true,
+        nombre: true,
+        codigo: true,
+        semestre: true,
+        activo: true
+      }
+    });
+  }
+
+  /**
    * Obtener una materia por ID
    */
   static async findById(id) {

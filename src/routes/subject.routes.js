@@ -11,6 +11,9 @@ const router = Router();
 // Obtener todas las materias
 router.get('/', SubjectController.getAllSubjects);
 
+// Obtener materias de un usuario
+router.get('/my', Authenticate, SubjectController.getMySubjects);
+
 // Obtener materias por código de carrera (útil para el frontend)
 router.get('/career-code/:careerCode', SubjectController.getSubjectsByCareerCode);
 

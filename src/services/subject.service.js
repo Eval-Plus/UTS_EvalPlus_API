@@ -27,6 +27,15 @@ export class SubjectService {
   }
 
   /**
+   * Obtiene todas las materias de un usuario
+   * @param {number} userId - ID del usuario
+   * @returns {Array} Lista de materias
+   */
+  static async getUserSubjects(userId) {
+    return await SubjectModel.getSubjectsByUserId(userId);
+  }
+
+  /**
    * Obtener una materia por ID
    * @param {number} id - ID de la materia
    * @returns {Object} Materia encontrada
