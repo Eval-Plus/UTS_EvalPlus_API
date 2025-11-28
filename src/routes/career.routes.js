@@ -25,7 +25,7 @@ router.get('/:id', CareerController.getCareerById);
  * @desc    Obtener estudiantes de una carrera
  * @access  Private (requiere autenticación)
  */
-router.get('/:id/students', Authenticate, CareerController.getCareerStudents);
+router.get('/:id/users', Authenticate, CareerController.getCareerUsers);
 
 // Rutas protegidas (requieren autenticación)
 
@@ -48,7 +48,7 @@ router.post('/seed', CareerController.seedCareers);
  * @desc    Inscribir un estudiante en una carrera
  * @access  Private
  */
-router.post('/:id/students', Authenticate, CareerController.enrollStudent);
+router.post('/:id/users', Authenticate, CareerController.enrollUsers);
 
 /**
  * @route   PUT /api/careers/:id
@@ -69,6 +69,6 @@ router.delete('/:id', Authenticate, CareerController.deleteCareer);
  * @desc    Desinscribir un estudiante de una carrera
  * @access  Private
  */
-router.delete('/:id/students/:studentId', Authenticate, CareerController.unenrollStudent);
+router.delete('/:id/users/:userId', Authenticate, CareerController.unenrollUser);
 
 export default router;

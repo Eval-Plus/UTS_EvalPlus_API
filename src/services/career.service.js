@@ -1,351 +1,310 @@
-import { CareerService } from '../services/career.service.js';
-import { successResponse, errorResponse } from '../utils/response.js';
-import { MESSAGES, HTTP_STATUS } from '../config/constants.js';
+/**
+ * Servicio de Carreras
+ * Maneja toda la lógica de negocio relacionada con carreras
+ */
 
-export class CareerController {
+import { CareerModel } from '../models/career.model.js';
+import { createLogger } from '../utils/logger.js';
+
+const logger = createLogger('CareerService');
+
+export class CareerService {
   /**
-   * Obtener todas las carreras
-   * GET /api/careers
+   * Obtener todas las carreras activas
+   * @returns {Array} Lista de carreras
    */
-  static async getAllCareers(req, res) {
+  static async getAllCareers() {
     try {
-      const careers = await CareerService.getAllCareers();
-      
-      return successResponse(
-        res,
-        careers,
-        MESSAGES.CAREER.RETRIEVED,
-        HTTP_STATUS.OK
-      );
+      logger.info('Obteniendo todas las carreras');
+      const careers = await CareerModel.findAll();
+      logger.success(`${careers.length} carreras obtenidas`);
+      return careers;
     } catch (error) {
-      console.error('Error al obtener carreras:', error);
-      return errorResponse(
-        res,
-        MESSAGES.GENERIC.ERROR,
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error('Error obteniendo carreras', error);
+      throw error;
     }
   }
 
   /**
    * Obtener una carrera por ID
-   * GET /api/careers/:id
+   * @param {number} id - ID de la carrera
+   * @returns {Object} Carrera encontrada
    */
-  static async getCareerById(req, res) {
+  static async getCareerById(id) {
     try {
-      const { id } = req.params;
-      const career = await CareerService.getCareerById(id);
+      logger.debug(`Buscando carrera con ID: ${id}`);
+      const career = await CareerModel.findById(id);
 
-      return successResponse(
-        res,
-        career,
-        MESSAGES.CAREER.RETRIEVED_ONE,
-        HTTP_STATUS.OK
-      );
-    } catch (error) {
-      console.error('Error al obtener carrera:', error);
-
-      if (error.message === 'Carrera no encontrada') {
-        return errorResponse(
-          res,
-          MESSAGES.CAREER.NOT_FOUND,
-          HTTP_STATUS.NOT_FOUND
-        );
+      if (!career) {
+        logger.warn(`Carrera ${id} no encontrada`);
+        throw new Error('Carrera no encontrada');
       }
 
-      return errorResponse(
-        res,
-        MESSAGES.GENERIC.ERROR,
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.success(`Carrera encontrada: ${career.nombre}`);
+      return career;
+    } catch (error) {
+      logger.error(`Error obteniendo carrera ${id}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtener una carrera por código
+   * @param {string} codigo - Código de la carrera
+   * @returns {Object|null} Carrera encontrada o null
+   */
+  static async getCareerByCode(codigo) {
+    try {
+      logger.debug(`Buscando carrera con código: ${codigo}`);
+      const career = await CareerModel.findByCode(codigo);
+      
+      if (career) {
+        logger.success(`Carrera encontrada: ${career.nombre}`);
+      } else {
+        logger.warn(`Carrera con código ${codigo} no encontrada`);
+      }
+      
+      return career;
+    } catch (error) {
+      logger.error(`Error buscando carrera por código ${codigo}`, error);
+      throw error;
     }
   }
 
   /**
    * Crear una nueva carrera
-   * POST /api/careers
+   * @param {Object} data - Datos de la carrera
+   * @returns {Object} Carrera creada
    */
-  static async createCareer(req, res) {
+  static async createCareer(data) {
     try {
-      const { nombre, codigo, icon, color, descripcion, activo } = req.body;
+      logger.info(`Creando carrera: ${data.nombre}`);
 
-      const newCareer = await CareerService.createCareer({
-        nombre,
-        codigo,
-        icon,
-        color,
-        descripcion,
-        activo
-      });
+      // Validar datos obligatorios
+      if (!data.nombre || !data.codigo) {
+        throw new Error('Nombre y código son requeridos');
+      }
 
-      return successResponse(
-        res,
-        newCareer,
-        MESSAGES.CAREER.CREATED,
-        HTTP_STATUS.CREATED
-      );
+      // Verificar si ya existe una carrera con ese código
+      const existingCareer = await this.getCareerByCode(data.codigo);
+      if (existingCareer) {
+        logger.warn(`Ya existe una carrera con código: ${data.codigo}`);
+        throw new Error('Ya existe una carrera con ese código');
+      }
+
+      const newCareer = await CareerModel.create(data);
+      logger.success(`Carrera creada: ${newCareer.nombre} (ID: ${newCareer.id})`);
+
+      return newCareer;
     } catch (error) {
-      console.error('Error al crear carrera:', error);
-
-      if (error.message === 'Nombre y código son requeridos') {
-        return errorResponse(
-          res,
-          MESSAGES.CAREER.REQUIRED_FIELDS,
-          HTTP_STATUS.BAD_REQUEST
-        );
-      }
-
-      if (error.message === 'Ya existe una carrera con ese código') {
-        return errorResponse(
-          res,
-          MESSAGES.CAREER.DUPLICATE_CODE,
-          HTTP_STATUS.CONFLICT
-        );
-      }
-
-      return errorResponse(
-        res,
-        MESSAGES.GENERIC.ERROR,
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error('Error creando carrera', error);
+      throw error;
     }
   }
 
   /**
-   * Actualizar una carrera
-   * PUT /api/careers/:id
+   * Actualizar una carrera existente
+   * @param {number} id - ID de la carrera
+   * @param {Object} data - Datos a actualizar
+   * @returns {Object} Carrera actualizada
    */
-  static async updateCareer(req, res) {
+  static async updateCareer(id, data) {
     try {
-      const { id } = req.params;
-      const { nombre, codigo, icon, color, descripcion, activo } = req.body;
+      logger.info(`Actualizando carrera ${id}`);
 
-      const updatedCareer = await CareerService.updateCareer(id, {
-        nombre,
-        codigo,
-        icon,
-        color,
-        descripcion,
-        activo
-      });
+      // Verificar que la carrera existe
+      const existingCareer = await this.getCareerById(id);
 
-      return successResponse(
-        res,
-        updatedCareer,
-        MESSAGES.CAREER.UPDATED,
-        HTTP_STATUS.OK
-      );
+      // Si se está cambiando el código, verificar que no exista otro con ese código
+      if (data.codigo && data.codigo !== existingCareer.codigo) {
+        const careerWithCode = await this.getCareerByCode(data.codigo);
+        if (careerWithCode) {
+          logger.warn(`Ya existe otra carrera con código: ${data.codigo}`);
+          throw new Error('Ya existe una carrera con ese código');
+        }
+      }
+
+      const updatedCareer = await CareerModel.update(id, data);
+      logger.success(`Carrera ${id} actualizada: ${updatedCareer.nombre}`);
+
+      return updatedCareer;
     } catch (error) {
-      console.error('Error al actualizar carrera:', error);
-
-      if (error.message === 'Carrera no encontrada') {
-        return errorResponse(
-          res,
-          MESSAGES.CAREER.NOT_FOUND,
-          HTTP_STATUS.NOT_FOUND
-        );
-      }
-
-      if (error.message === 'Ya existe una carrera con ese código') {
-        return errorResponse(
-          res,
-          MESSAGES.CAREER.DUPLICATE_CODE,
-          HTTP_STATUS.CONFLICT
-        );
-      }
-
-      return errorResponse(
-        res,
-        MESSAGES.GENERIC.ERROR,
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error(`Error actualizando carrera ${id}`, error);
+      throw error;
     }
   }
 
   /**
    * Eliminar (desactivar) una carrera
-   * DELETE /api/careers/:id
+   * @param {number} id - ID de la carrera
+   * @returns {Object} Carrera desactivada
    */
-  static async deleteCareer(req, res) {
+  static async deleteCareer(id) {
     try {
-      const { id } = req.params;
-      await CareerService.deleteCareer(id);
+      logger.info(`Desactivando carrera ${id}`);
 
-      return successResponse(
-        res,
-        null,
-        MESSAGES.CAREER.DELETED,
-        HTTP_STATUS.OK
-      );
+      // Verificar que la carrera existe
+      await this.getCareerById(id);
+
+      const deletedCareer = await CareerModel.delete(id);
+      logger.success(`Carrera ${id} desactivada`);
+
+      return deletedCareer;
     } catch (error) {
-      console.error('Error al eliminar carrera:', error);
-
-      if (error.message === 'Carrera no encontrada') {
-        return errorResponse(
-          res,
-          MESSAGES.CAREER.NOT_FOUND,
-          HTTP_STATUS.NOT_FOUND
-        );
-      }
-
-      return errorResponse(
-        res,
-        MESSAGES.GENERIC.ERROR,
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error(`Error desactivando carrera ${id}`, error);
+      throw error;
     }
   }
 
   /**
    * Obtener usuarios de una carrera
-   * GET /api/careers/:id/users
+   * @param {number} careerId - ID de la carrera
+   * @returns {Object} Carrera con sus usuarios
    */
-  static async getCareerUsers(req, res) {
+  static async getCareerUsers(careerId) {
     try {
-      const { id } = req.params;
-      const data = await CareerService.getCareerUsers(id);
+      logger.debug(`Obteniendo usuarios de carrera ${careerId}`);
 
-      return successResponse(
-        res,
-        data,
-        'Usuarios obtenidos exitosamente',
-        HTTP_STATUS.OK
-      );
+      // Verificar que la carrera existe
+      const career = await this.getCareerById(careerId);
+
+      const users = await CareerModel.getUsers(careerId);
+      logger.success(`${users.length} usuarios encontrados en carrera ${careerId}`);
+
+      return {
+        career: {
+          id: career.id,
+          nombre: career.nombre,
+          codigo: career.codigo
+        },
+        users
+      };
     } catch (error) {
-      console.error('Error al obtener usuarios:', error);
-
-      if (error.message === 'Carrera no encontrada') {
-        return errorResponse(
-          res,
-          MESSAGES.CAREER.NOT_FOUND,
-          HTTP_STATUS.NOT_FOUND
-        );
-      }
-
-      return errorResponse(
-        res,
-        MESSAGES.GENERIC.ERROR,
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error(`Error obteniendo usuarios de carrera ${careerId}`, error);
+      throw error;
     }
   }
 
   /**
    * Inscribir un usuario en una carrera
-   * POST /api/careers/:id/users
+   * @param {number} userId - ID del usuario
+   * @param {number} careerId - ID de la carrera
+   * @returns {Object} Inscripción creada
    */
-  static async enrollUser(req, res) {
+  static async enrollUser(userId, careerId) {
     try {
-      const { id } = req.params;
-      const { userId } = req.body;
+      logger.info(`Inscribiendo usuario ${userId} en carrera ${careerId}`);
 
-      if (!userId) {
-        return errorResponse(
-          res,
-          'ID del usuario es requerido',
-          HTTP_STATUS.BAD_REQUEST
-        );
-      }
+      // Verificar que la carrera existe
+      await this.getCareerById(careerId);
 
-      const enrollment = await CareerService.enrollUser(userId, id);
+      const enrollment = await CareerModel.enrollUser(userId, careerId);
+      logger.success(`Usuario ${userId} inscrito en carrera ${careerId}`);
 
-      return successResponse(
-        res,
-        enrollment,
-        MESSAGES.ENROLLMENT.STUDENT_ENROLLED,
-        HTTP_STATUS.CREATED
-      );
+      return enrollment;
     } catch (error) {
-      console.error('Error al inscribir usuario:', error);
-
-      if (error.message === 'Carrera no encontrada') {
-        return errorResponse(
-          res,
-          MESSAGES.CAREER.NOT_FOUND,
-          HTTP_STATUS.NOT_FOUND
-        );
+      if (error.code === 'P2002') {
+        logger.warn(`Usuario ${userId} ya está inscrito en carrera ${careerId}`);
+        throw new Error('El usuario ya está inscrito en esta carrera');
       }
-
-      if (error.message === 'El usuario ya está inscrito en esta carrera') {
-        return errorResponse(
-          res,
-          MESSAGES.ENROLLMENT.ALREADY_ENROLLED,
-          HTTP_STATUS.CONFLICT
-        );
-      }
-
-      return errorResponse(
-        res,
-        MESSAGES.GENERIC.ERROR,
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error(`Error inscribiendo usuario ${userId} en carrera ${careerId}`, error);
+      throw error;
     }
   }
 
   /**
    * Desinscribir un usuario de una carrera
-   * DELETE /api/careers/:id/users/:userId
+   * @param {number} userId - ID del usuario
+   * @param {number} careerId - ID de la carrera
    */
-  static async unenrollUser(req, res) {
+  static async unenrollUser(userId, careerId) {
     try {
-      const { id, userId } = req.params;
-      await CareerService.unenrollUser(userId, id);
+      logger.info(`Desinscribiendo usuario ${userId} de carrera ${careerId}`);
 
-      return successResponse(
-        res,
-        null,
-        MESSAGES.ENROLLMENT.STUDENT_UNENROLLED,
-        HTTP_STATUS.OK
-      );
+      // Verificar que la carrera existe
+      await this.getCareerById(careerId);
+
+      await CareerModel.unenrollUser(userId, careerId);
+      logger.success(`Usuario ${userId} desinscrito de carrera ${careerId}`);
     } catch (error) {
-      console.error('Error al desinscribir usuario:', error);
-
-      if (error.message === 'Carrera no encontrada') {
-        return errorResponse(
-          res,
-          MESSAGES.CAREER.NOT_FOUND,
-          HTTP_STATUS.NOT_FOUND
-        );
-      }
-
-      return errorResponse(
-        res,
-        MESSAGES.GENERIC.ERROR,
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error(`Error desinscribiendo usuario ${userId} de carrera ${careerId}`, error);
+      throw error;
     }
   }
 
   /**
-   * Seed de carreras (solo para desarrollo/pruebas)
-   * POST /api/careers/seed
+   * Seed de carreras (solo para desarrollo)
+   * @returns {Array} Carreras creadas
    */
-  static async seedCareers(req, res) {
+  static async seedCareers() {
     try {
-      const careers = await CareerService.seedCareers();
+      logger.info('Iniciando seed de carreras');
 
-      return successResponse(
-        res,
-        careers,
-        `${careers.length} carreras creadas exitosamente`,
-        HTTP_STATUS.CREATED
-      );
-    } catch (error) {
-      console.error('Error al crear carreras de prueba:', error);
+      // Verificar si ya existen carreras
+      const existingCareers = await this.getAllCareers();
 
-      if (error.message.includes('ya fueron generadas previamente')) {
-        return errorResponse(
-          res,
-          error.message,
-          HTTP_STATUS.CONFLICT
-        );
+      if (existingCareers.length >= 5) {
+        logger.warn('Ya existen carreras, no se crearán duplicados');
+        throw new Error('Las carreras ya fueron generadas previamente. No se pueden duplicar.');
       }
 
-      return errorResponse(
-        res,
-        MESSAGES.GENERIC.ERROR,
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      // Datos de las carreras de ejemplo
+      const careersData = [
+        {
+          nombre: 'Ingeniería de Sistemas',
+          codigo: 'ING-SIS',
+          icon: 'computer',
+          color: '0xFF2196F3',
+          descripcion: 'Carrera enfocada en el desarrollo de software y sistemas computacionales'
+        },
+        {
+          nombre: 'Administración de Empresas',
+          codigo: 'ADM-EMP',
+          icon: 'business',
+          color: '0xFF4CAF50',
+          descripcion: 'Formación en gestión empresarial y liderazgo organizacional'
+        },
+        {
+          nombre: 'Contaduría Pública',
+          codigo: 'CON-PUB',
+          icon: 'account_balance',
+          color: '0xFFF44336',
+          descripcion: 'Especialización en contabilidad, finanzas y auditoría'
+        },
+        {
+          nombre: 'Derecho',
+          codigo: 'DER',
+          icon: 'gavel',
+          color: '0xFF9C27B0',
+          descripcion: 'Estudio de las ciencias jurídicas y el sistema legal'
+        },
+        {
+          nombre: 'Medicina',
+          codigo: 'MED',
+          icon: 'local_hospital',
+          color: '0xFFE91E63',
+          descripcion: 'Formación médica y ciencias de la salud'
+        }
+      ];
+
+      const createdCareers = [];
+
+      for (const careerData of careersData) {
+        try {
+          const career = await this.createCareer(careerData);
+          createdCareers.push(career);
+        } catch (error) {
+          logger.warn(`No se pudo crear carrera ${careerData.nombre}`, { error: error.message });
+        }
+      }
+
+      logger.success(`Seed completado: ${createdCareers.length} carreras creadas`);
+      return createdCareers;
+    } catch (error) {
+      logger.error('Error en seed de carreras', error);
+      throw error;
     }
   }
 }
+
+export default CareerService;

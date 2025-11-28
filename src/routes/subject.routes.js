@@ -24,17 +24,17 @@ router.get('/semester/:semestre', SubjectController.getSubjectsBySemester);
 router.get('/:id', SubjectController.getSubjectById);
 
 // Obtener estudiantes de una materia
-router.get('/:id/students', SubjectController.getSubjectStudents);
+router.get('/:id/users', SubjectController.getSubjectUsers);
 
 /**
  * Rutas protegidas (requieren autenticación)
  */
 
 // Inscribir estudiante en materia (requiere autenticación)
-router.post('/:id/enroll', Authenticate, SubjectController.enrollStudent);
+router.post('/:id/enroll', Authenticate, SubjectController.enrollUser);
 
 // Desinscribir estudiante de materia (requiere autenticación)
-router.delete('/:id/enroll/:studentId', Authenticate, SubjectController.unenrollStudent);
+router.delete('/:id/enroll/:userId', Authenticate, SubjectController.unenrollUser);
 
 /**
  * Rutas administrativas (solo desarrollo - agregar middleware de admin en producción)
