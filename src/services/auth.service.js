@@ -264,6 +264,13 @@ export class AuthService {
         icon: sc.career.icon,
         color: sc.career.color,
         enrolledAt: sc.enrolledAt
+      })) || [],
+      roles: user.roles?.map(ur => ({
+        id: ur.role.id,
+        name: ur.role.name,
+        displayName: ur.role.displayName,
+        description: ur.role.description,
+        assignedAt: ur.assignedAt
       })) || []
     };
   }

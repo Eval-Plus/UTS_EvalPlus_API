@@ -29,7 +29,7 @@ export class UserModel {
   }
 
   /**
-   * Buscar por ID con sus carreras
+   * Buscar por ID con sus carreras y roles
    */
   static async findByIdWithCareers(id) {
     return await prisma.user.findUnique({
@@ -45,6 +45,18 @@ export class UserModel {
                 icon: true,
                 color: true,
                 descripcion: true
+              }
+            }
+          }
+        },
+        roles: {
+          include: {
+            role: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                description: true
               }
             }
           }

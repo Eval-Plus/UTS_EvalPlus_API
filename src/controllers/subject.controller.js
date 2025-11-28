@@ -1,5 +1,6 @@
-import { SubjectModel } from '../models/subject.model.js';
+import { SubjectService } from '../services/subject.service.js';
 import { successResponse, errorResponse } from '../utils/response.js';
+import { MESSAGES, HTTP_STATUS } from '../config/constants.js';
 
 export class SubjectController {
   /**
@@ -8,16 +9,21 @@ export class SubjectController {
    */
   static async getAllSubjects(req, res) {
     try {
-      const subjects = await SubjectModel.findAll();
+      const subjects = await SubjectService.getAllSubjects();
       
       return successResponse(
         res,
         subjects,
-        'Materias obtenidas exitosamente'
+        MESSAGES.SUBJECT.RETRIEVED,
+        HTTP_STATUS.OK
       );
     } catch (error) {
       console.error('Error al obtener materias:', error);
-      return errorResponse(res, 'Error al obtener las materias', 500);
+      return errorResponse(
+        res,
+        MESSAGES.GENERIC.ERROR,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
@@ -28,20 +34,30 @@ export class SubjectController {
   static async getSubjectById(req, res) {
     try {
       const { id } = req.params;
-      const subject = await SubjectModel.findById(id);
-
-      if (!subject) {
-        return errorResponse(res, 'Materia no encontrada', 404);
-      }
+      const subject = await SubjectService.getSubjectById(id);
 
       return successResponse(
         res,
         subject,
-        'Materia obtenida exitosamente'
+        MESSAGES.SUBJECT.RETRIEVED_ONE,
+        HTTP_STATUS.OK
       );
     } catch (error) {
       console.error('Error al obtener materia:', error);
-      return errorResponse(res, 'Error al obtener la materia', 500);
+
+      if (error.message === 'Materia no encontrada') {
+        return errorResponse(
+          res,
+          MESSAGES.SUBJECT.NOT_FOUND,
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      return errorResponse(
+        res,
+        MESSAGES.GENERIC.ERROR,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
@@ -52,16 +68,21 @@ export class SubjectController {
   static async getSubjectsByCareer(req, res) {
     try {
       const { careerId } = req.params;
-      const subjects = await SubjectModel.findByCareer(careerId);
+      const subjects = await SubjectService.getSubjectsByCareer(careerId);
 
       return successResponse(
         res,
         subjects,
-        'Materias de la carrera obtenidas exitosamente'
+        MESSAGES.SUBJECT.RETRIEVED,
+        HTTP_STATUS.OK
       );
     } catch (error) {
       console.error('Error al obtener materias por carrera:', error);
-      return errorResponse(res, 'Error al obtener las materias', 500);
+      return errorResponse(
+        res,
+        MESSAGES.GENERIC.ERROR,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
@@ -72,16 +93,30 @@ export class SubjectController {
   static async getSubjectsByCareerCode(req, res) {
     try {
       const { careerCode } = req.params;
-      const subjects = await SubjectModel.findByCareerCode(careerCode);
+      const subjects = await SubjectService.getSubjectsByCareerCode(careerCode);
 
       return successResponse(
         res,
         subjects,
-        `Materias de ${careerCode} obtenidas exitosamente`
+        `Materias de ${careerCode} obtenidas exitosamente`,
+        HTTP_STATUS.OK
       );
     } catch (error) {
       console.error('Error al obtener materias por código de carrera:', error);
-      return errorResponse(res, 'Error al obtener las materias', 500);
+
+      if (error.message === 'Carrera no encontrada') {
+        return errorResponse(
+          res,
+          MESSAGES.CAREER.NOT_FOUND,
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      return errorResponse(
+        res,
+        MESSAGES.GENERIC.ERROR,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
@@ -94,61 +129,79 @@ export class SubjectController {
       const { semestre } = req.params;
       const { careerId } = req.query;
 
-      const subjects = await SubjectModel.findBySemester(semestre, careerId);
+      const subjects = await SubjectService.getSubjectsBySemester(semestre, careerId);
 
       return successResponse(
         res,
         subjects,
-        `Materias del semestre ${semestre} obtenidas exitosamente`
+        `Materias del semestre ${semestre} obtenidas exitosamente`,
+        HTTP_STATUS.OK
       );
     } catch (error) {
       console.error('Error al obtener materias por semestre:', error);
-      return errorResponse(res, 'Error al obtener las materias', 500);
+      return errorResponse(
+        res,
+        MESSAGES.GENERIC.ERROR,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
   /**
    * Crear una nueva materia
    * POST /api/subjects
-   * Body: { nombre, codigo, careerId, professorName, semestre, descripcion }
    */
   static async createSubject(req, res) {
     try {
       const { nombre, codigo, careerId, professorName, semestre, descripcion } = req.body;
 
-      // Validaciones básicas
-      if (!nombre || !codigo || !careerId || !professorName) {
-        return errorResponse(
-          res,
-          'Faltan campos obligatorios: nombre, codigo, careerId, professorName',
-          400
-        );
-      }
-
-      // Verificar si ya existe una materia con ese código
-      const existingSubject = await SubjectModel.findByCode(codigo);
-      if (existingSubject) {
-        return errorResponse(res, 'Ya existe una materia con ese código', 409);
-      }
-
-      const newSubject = await SubjectModel.create({
+      const newSubject = await SubjectService.createSubject({
         nombre,
         codigo,
         careerId,
         professorName,
-        semestre: semestre || 1,
+        semestre,
         descripcion
       });
 
       return successResponse(
         res,
         newSubject,
-        'Materia creada exitosamente',
-        201
+        MESSAGES.SUBJECT.CREATED,
+        HTTP_STATUS.CREATED
       );
     } catch (error) {
       console.error('Error al crear materia:', error);
-      return errorResponse(res, 'Error al crear la materia', 500);
+
+      if (error.message.includes('campos obligatorios')) {
+        return errorResponse(
+          res,
+          error.message,
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      if (error.message === 'La carrera especificada no existe') {
+        return errorResponse(
+          res,
+          MESSAGES.CAREER.NOT_FOUND,
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      if (error.message === 'Ya existe una materia con ese código') {
+        return errorResponse(
+          res,
+          MESSAGES.SUBJECT.DUPLICATE_CODE,
+          HTTP_STATUS.CONFLICT
+        );
+      }
+
+      return errorResponse(
+        res,
+        MESSAGES.GENERIC.ERROR,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
@@ -161,30 +214,46 @@ export class SubjectController {
       const { id } = req.params;
       const updateData = req.body;
 
-      // Verificar que la materia existe
-      const existingSubject = await SubjectModel.findById(id);
-      if (!existingSubject) {
-        return errorResponse(res, 'Materia no encontrada', 404);
-      }
-
-      // Si se intenta cambiar el código, verificar que no exista otro con ese código
-      if (updateData.codigo && updateData.codigo !== existingSubject.codigo) {
-        const subjectWithCode = await SubjectModel.findByCode(updateData.codigo);
-        if (subjectWithCode) {
-          return errorResponse(res, 'Ya existe una materia con ese código', 409);
-        }
-      }
-
-      const updatedSubject = await SubjectModel.update(id, updateData);
+      const updatedSubject = await SubjectService.updateSubject(id, updateData);
 
       return successResponse(
         res,
         updatedSubject,
-        'Materia actualizada exitosamente'
+        MESSAGES.SUBJECT.UPDATED,
+        HTTP_STATUS.OK
       );
     } catch (error) {
       console.error('Error al actualizar materia:', error);
-      return errorResponse(res, 'Error al actualizar la materia', 500);
+
+      if (error.message === 'Materia no encontrada') {
+        return errorResponse(
+          res,
+          MESSAGES.SUBJECT.NOT_FOUND,
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      if (error.message === 'La carrera especificada no existe') {
+        return errorResponse(
+          res,
+          MESSAGES.CAREER.NOT_FOUND,
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      if (error.message === 'Ya existe una materia con ese código') {
+        return errorResponse(
+          res,
+          MESSAGES.SUBJECT.DUPLICATE_CODE,
+          HTTP_STATUS.CONFLICT
+        );
+      }
+
+      return errorResponse(
+        res,
+        MESSAGES.GENERIC.ERROR,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
@@ -195,108 +264,158 @@ export class SubjectController {
   static async deleteSubject(req, res) {
     try {
       const { id } = req.params;
-
-      const subject = await SubjectModel.findById(id);
-      if (!subject) {
-        return errorResponse(res, 'Materia no encontrada', 404);
-      }
-
-      await SubjectModel.delete(id);
+      await SubjectService.deleteSubject(id);
 
       return successResponse(
         res,
         null,
-        'Materia desactivada exitosamente'
+        MESSAGES.SUBJECT.DELETED,
+        HTTP_STATUS.OK
       );
     } catch (error) {
       console.error('Error al eliminar materia:', error);
-      return errorResponse(res, 'Error al eliminar la materia', 500);
+
+      if (error.message === 'Materia no encontrada') {
+        return errorResponse(
+          res,
+          MESSAGES.SUBJECT.NOT_FOUND,
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      return errorResponse(
+        res,
+        MESSAGES.GENERIC.ERROR,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
   /**
-   * Obtener estudiantes de una materia
-   * GET /api/subjects/:id/students
+   * Obtener usuarios de una materia
+   * GET /api/subjects/:id/users
    */
-  static async getSubjectStudents(req, res) {
+  static async getSubjectUsers(req, res) {
     try {
       const { id } = req.params;
-
-      const subject = await SubjectModel.findById(id);
-      if (!subject) {
-        return errorResponse(res, 'Materia no encontrada', 404);
-      }
-
-      const students = await SubjectModel.getStudents(id);
+      const users = await SubjectService.getSubjectUsers(id);
 
       return successResponse(
         res,
-        students,
-        'Estudiantes de la materia obtenidos exitosamente'
+        users,
+        'Usuarios de la materia obtenidos exitosamente',
+        HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error al obtener estudiantes de materia:', error);
-      return errorResponse(res, 'Error al obtener los estudiantes', 500);
+      console.error('Error al obtener usuarios de materia:', error);
+
+      if (error.message === 'Materia no encontrada') {
+        return errorResponse(
+          res,
+          MESSAGES.SUBJECT.NOT_FOUND,
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      return errorResponse(
+        res,
+        MESSAGES.GENERIC.ERROR,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
   /**
-   * Inscribir un estudiante en una materia
+   * Inscribir un usuario en una materia
    * POST /api/subjects/:id/enroll
-   * Body: { studentId }
    */
-  static async enrollStudent(req, res) {
+  static async enrollUser(req, res) {
     try {
       const { id } = req.params;
-      const { studentId } = req.body;
+      const { userId } = req.body;
 
-      if (!studentId) {
-        return errorResponse(res, 'studentId es requerido', 400);
+      if (!userId) {
+        return errorResponse(
+          res,
+          'userId es requerido',
+          HTTP_STATUS.BAD_REQUEST
+        );
       }
 
-      // Verificar si ya está inscrito
-      const isEnrolled = await SubjectModel.isStudentEnrolled(studentId, id);
-      if (isEnrolled) {
-        return errorResponse(res, 'El estudiante ya está inscrito en esta materia', 409);
-      }
-
-      const enrollment = await SubjectModel.enrollStudent(studentId, id);
+      const enrollment = await SubjectService.enrollUser(userId, id);
 
       return successResponse(
         res,
         enrollment,
-        'Estudiante inscrito exitosamente',
-        201
+        MESSAGES.ENROLLMENT.STUDENT_ENROLLED,
+        HTTP_STATUS.CREATED
       );
     } catch (error) {
-      console.error('Error al inscribir estudiante:', error);
-      return errorResponse(res, 'Error al inscribir al estudiante', 500);
+      console.error('Error al inscribir usuario:', error);
+
+      if (error.message === 'Materia no encontrada') {
+        return errorResponse(
+          res,
+          MESSAGES.SUBJECT.NOT_FOUND,
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      if (error.message === 'El usuario ya está inscrito en esta materia') {
+        return errorResponse(
+          res,
+          MESSAGES.ENROLLMENT.ALREADY_ENROLLED,
+          HTTP_STATUS.CONFLICT
+        );
+      }
+
+      return errorResponse(
+        res,
+        MESSAGES.GENERIC.ERROR,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
   /**
-   * Desinscribir un estudiante de una materia
-   * DELETE /api/subjects/:id/enroll/:studentId
+   * Desinscribir un usuario de una materia
+   * DELETE /api/subjects/:id/enroll/:userId
    */
-  static async unenrollStudent(req, res) {
+  static async unenrollUser(req, res) {
     try {
-      const { id, studentId } = req.params;
-
-      const isEnrolled = await SubjectModel.isStudentEnrolled(studentId, id);
-      if (!isEnrolled) {
-        return errorResponse(res, 'El estudiante no está inscrito en esta materia', 404);
-      }
-
-      await SubjectModel.unenrollStudent(studentId, id);
+      const { id, userId } = req.params;
+      await SubjectService.unenrollUser(userId, id);
 
       return successResponse(
         res,
         null,
-        'Estudiante desinscrito exitosamente'
+        MESSAGES.ENROLLMENT.STUDENT_UNENROLLED,
+        HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error al desinscribir estudiante:', error);
-      return errorResponse(res, 'Error al desinscribir al estudiante', 500);
+      console.error('Error al desinscribir usuario:', error);
+
+      if (error.message === 'Materia no encontrada') {
+        return errorResponse(
+          res,
+          MESSAGES.SUBJECT.NOT_FOUND,
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      if (error.message === 'El usuario no está inscrito en esta materia') {
+        return errorResponse(
+          res,
+          MESSAGES.ENROLLMENT.NOT_ENROLLED,
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      return errorResponse(
+        res,
+        MESSAGES.GENERIC.ERROR,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 }
