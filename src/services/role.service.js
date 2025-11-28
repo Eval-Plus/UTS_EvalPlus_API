@@ -4,6 +4,7 @@
  */
 
 import { UserModel } from '../models/user.model.js';
+import { RoleModel } from '../models/role.model.js';
 import { ROLES, TEACHER_EMAIL_KEYWORDS } from '../config/constants.js';
 import { createLogger } from '../utils/logger.js';
 
@@ -77,7 +78,7 @@ export class RoleService {
    * @returns {Array} Lista de roles
    */
   static async getUserRoles(userId) {
-    return await UserModel.getUserRoles(userId);
+    return await RoleModel.getRolesByUserId(userId);
   }
 
   /**

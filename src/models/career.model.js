@@ -16,6 +16,24 @@ export class CareerModel {
   }
 
   /**
+   * Obtener todas las carreras de un usuario
+   */
+  static async getCareersByUserId(userId) {
+    return await prisma.career.findMany({
+      where: { users: { some: { userId } } },
+      select: {
+        id: true,
+        nombre: true,
+        codigo: true,
+        icon: true,
+        color: true,
+        descripcion: true,
+        activo: true
+      }
+    });
+  }
+
+  /**
    * Obtener una carrera por ID
    */
   static async findById(id) {

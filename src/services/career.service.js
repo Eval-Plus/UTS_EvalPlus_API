@@ -26,6 +26,15 @@ export class CareerService {
   }
 
   /**
+   * Obtiene todas las carreras de un usuario
+   * @param {number} userId - ID del usuario
+   * @returns {Array} Lista de carreras
+   */
+  static async getUserCareers(userId) {
+    return await CareerModel.getCareersByUserId(userId);
+  }
+
+  /**
    * Obtener una carrera por ID
    * @param {number} id - ID de la carrera
    * @returns {Object} Carrera encontrada

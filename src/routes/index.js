@@ -7,6 +7,7 @@ import { Router } from 'express';
 import authRoutes from './auth.routes.js';
 import careerRoutes from './career.routes.js';
 import subjectRoutes from './subject.routes.js';
+import roleRoutes from './role.routes.js';
 
 const router = Router();
 
@@ -16,6 +17,7 @@ const router = Router();
 router.use('/auth', authRoutes);
 router.use('/careers', careerRoutes);
 router.use('/subjects', subjectRoutes);
+router.use('/roles', roleRoutes);
 
 /**
  * Ruta de health check

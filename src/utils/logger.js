@@ -35,7 +35,7 @@ const icons = {
 class Logger {
   constructor(module = 'App') {
     this.module = module;
-    this.isDevelopment = process.env.NODE_ENV === 'development';
+    this.isDevelopment = true;
   }
 
   /**
@@ -87,7 +87,7 @@ class Logger {
   error(message, error = null) {
     const errorData = error ? {
       message: error.message,
-      stack: this.isDevelopment ? error.stack : undefined
+      stack: error.stack
     } : null;
     
     console.error(

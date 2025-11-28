@@ -29,6 +29,26 @@ export class UserModel {
   }
 
   /**
+   * Buscar por ID (solo datos del usuario)
+   */
+  static async findByIdBasic(id) {
+    return await prisma.user.findUnique({
+      where: { id: parseInt(id) },
+      select: {
+        id: true,
+        microsoftId: true,
+        nombreCompleto: true,
+        email: true,
+        profilePicture: true,
+        identificacion: true,
+        isProfileComplete: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+  }
+
+  /**
    * Buscar por ID con sus carreras y roles
    */
   static async findByIdWithCareers(id) {

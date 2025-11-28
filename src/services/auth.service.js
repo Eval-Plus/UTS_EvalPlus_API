@@ -184,7 +184,7 @@ export class AuthService {
    */
   static async getProfile(userId) {
     try {
-      const user = await UserModel.findByIdWithCareers(userId);
+      const user = await UserModel.findByIdBasic(userId);
 
       if (!user) {
         throw new Error('Usuario no encontrado');
@@ -251,27 +251,12 @@ export class AuthService {
    * @param {Object} user - Objeto usuario
    * @returns {Object} Usuario sanitizado
    */
-  static sanitizeUser(user) {
+    static sanitizeUser(user) {
     const { microsoftId, ...userData } = user;
 
     return {
       ...userData,
-      hasMicrosoftAccount: Boolean(microsoftId),
-      careers: user.careers?.map(sc => ({
-        id: sc.career.id,
-        nombre: sc.career.nombre,
-        codigo: sc.career.codigo,
-        icon: sc.career.icon,
-        color: sc.career.color,
-        enrolledAt: sc.enrolledAt
-      })) || [],
-      roles: user.roles?.map(ur => ({
-        id: ur.role.id,
-        name: ur.role.name,
-        displayName: ur.role.displayName,
-        description: ur.role.description,
-        assignedAt: ur.assignedAt
-      })) || []
+      hasMicrosoftAccount: Boolean(microsoftId)
     };
   }
 

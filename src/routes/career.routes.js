@@ -14,6 +14,13 @@ const router = Router();
 router.get('/', CareerController.getAllCareers);
 
 /**
+ * @route GET /api/careers/my
+ * @desc Obtiene carreras de un usuario
+ * @access Private (JWT)
+ */
+router.get('/my', Authenticate, CareerController.getMyCareers);
+
+/**
  * @route   GET /api/careers/:id
  * @desc    Obtener una carrera por ID
  * @access  Public/Private
@@ -48,7 +55,7 @@ router.post('/seed', CareerController.seedCareers);
  * @desc    Inscribir un estudiante en una carrera
  * @access  Private
  */
-router.post('/:id/users', Authenticate, CareerController.enrollUsers);
+router.post('/:id/users', Authenticate, CareerController.enrollUser);
 
 /**
  * @route   PUT /api/careers/:id

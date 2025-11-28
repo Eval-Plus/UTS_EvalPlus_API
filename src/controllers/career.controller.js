@@ -28,6 +28,22 @@ export class CareerController {
   }
 
   /**
+    * Obtener todas las carreras de un usuario
+    * GET /api/careers/my
+  */
+  static async getMyCareers(req, res) {
+    try {
+      const userId = req.user.id;
+      const careers = await CareerService.getUserCareers(userId);
+
+      return successResponse(res, careers);
+    } catch (error) {
+      console.error("🔥 ERROR en /api/careers/my:", error);
+      return errorResponse(res, error);
+    }
+  }
+
+  /**
    * Obtener una carrera por ID
    * GET /api/careers/:id
    */
