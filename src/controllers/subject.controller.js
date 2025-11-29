@@ -28,13 +28,25 @@ export class SubjectController {
   }
 
   /**
-    * Obtener todas las materias de un usuario
+    * Obtener materias de un usuario por carrera
     * GET /api/subjects/my
   */
   static async getMySubjects(req, res) {
     try {
       const userId = req.user.id;
-      const subjects = await SubjectService.getUserSubjects(userId);
+      const { careerId, careerName } = req.body;
+
+      if (!careerId && !careerName) {
+        return res.status(400).json({
+          ok: false,
+          message: "Debe enviar 'careerId' o 'careerName' para filtrar las materias."
+        });
+      }
+
+      const subjects = await SubjectService.getUserSubjectsByCareer(
+        userId,
+        { careerId, careerName }
+      );
 
       return successResponse(res, subjects);
     } catch (error) {

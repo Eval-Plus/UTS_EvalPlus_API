@@ -27,12 +27,12 @@ export class SubjectService {
   }
 
   /**
-   * Obtiene todas las materias de un usuario
+   * Obtiene todas las materias de un usuario filtradas por carrera
    * @param {number} userId - ID del usuario
    * @returns {Array} Lista de materias
    */
-  static async getUserSubjects(userId) {
-    return await SubjectModel.getSubjectsByUserId(userId);
+  static async getUserSubjectsByCareer(userId, filter) {
+    return await SubjectModel.getSubjetcsByUserAndCareer(userId, filter);
   }
 
   /**

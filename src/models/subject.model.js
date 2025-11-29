@@ -26,11 +26,21 @@ export class SubjectModel {
   }
 
   /**
-   * Obtener todas las materias de un usuario
+   * Obtener materias de un usuario filtradas por carrera
    */
-  static async getSubjectsByUserId(userId) {
+  static async getSubjetcsByUserAndCareer(userId, { careerId, careerName }) {
+    const where = {
+      students: { some: { userId } }
+    };
+
+    if (careerId) {
+      where.careerId = careerId;
+    } else if (careerName) {
+      where.career = { nombre: careerName };
+    }
+
     return await prisma.subject.findMany({
-      where: { students: { some: { userId } } },
+      where,
       select: {
         id: true,
         nombre: true,
