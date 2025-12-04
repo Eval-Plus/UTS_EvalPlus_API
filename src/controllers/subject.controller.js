@@ -29,29 +29,62 @@ export class SubjectController {
 
   /**
     * Obtener materias de un usuario por carrera
-    * GET /api/subjects/my
+    * GET /api/subjects/my?careerId=''
   */
   static async getMySubjects(req, res) {
     try {
       const userId = req.user.id;
-      const { careerId, careerName } = req.body;
+      const { careerId } = req.query;
 
-      if (!careerId && !careerName) {
-        return res.status(400).json({
-          ok: false,
-          message: "Debe enviar 'careerId' o 'careerName' para filtrar las materias."
-        });
+      // Validar que se envíe careerId
+      if (!careerId) {
+        return errorResponse(
+          res,
+          "El parámetro 'careerId' es requerido",
+          HTTP_STATUS.BAD_REQUEST
+        );
       }
 
-      const subjects = await SubjectService.getUserSubjectsByCareer(
+      // Validar numero valido
+      const careerIdNum = parseInt(careerId);
+      if (isNaN(careerIdNum) || careerIdNum < 1) {
+        return errorResponse(
+          res,
+          "El parámetro 'careerId' debe ser un número válido",
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      const result = await SubjectService.getUserSubjectsByCareer(
         userId,
-        { careerId, careerName }
+        careerIdNum
       );
 
-      return successResponse(res, subjects);
+      return successResponse(res, result);
     } catch (error) {
       console.error("🔥 ERROR en /api/subjects/my:", error);
-      return errorResponse(res, error);
+
+      if (error.message === 'Carrera no encontrada') {
+        return errorResponse(
+          res,
+          MESSAGES.CAREER.NOT_FOUND,
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      if (error.message.includes('no tiene materias inscritas')) {
+        return errorResponse(
+          res,
+          error.message,
+          HTTP_STATUS.OK
+        );
+      }
+
+      return errorResponse(
+        res,
+        MESSAGES.GENERIC.ERROR,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 

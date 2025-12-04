@@ -345,6 +345,193 @@ async function seedSubjects() {
 }
 
 /**
+ * Seed de Plantilla de Evaluación y Preguntas
+ */
+async function seedEvaluationTemplate() {
+  console.log('🌱 Seeding evaluation template and questions...');
+
+  // 1. Crear plantilla base
+  let template = await prisma.evaluationTemplate.findFirst({
+    where: { nombre: 'Evaluación Docente Estándar' }
+  });
+
+  if (!template) {
+    template = await prisma.evaluationTemplate.create({
+      data: {
+        nombre: 'Evaluación Docente Estándar',
+        descripcion: 'Plantilla estándar para evaluación de desempeño docente',
+        activo: true
+      }
+    });
+    console.log(`  ✅ Plantilla creada: ${template.nombre}`);
+  } else {
+    console.log(`  ⏭️  Plantilla ya existe: ${template.nombre}`);
+  }
+
+  // 2. Preguntas de evaluación
+  const questions = [
+    {
+      categoria: 'Competencia Disciplinaria',
+      aspecto: 'Formativo',
+      nroPregunta: 1,
+      enunciado: 'Demuestra dominio y actualización en la presentación de los temas del curso.',
+      tipoRespuesta: 'escala',
+      valorMinimo: 1,
+      valorMaximo: 5,
+      orden: 1
+    },
+    {
+      categoria: 'Conocimiento y dominio de la materia',
+      aspecto: 'Formativo',
+      nroPregunta: 2,
+      enunciado: 'Orienta de manera clara los conceptos y teorias del curso.',
+      tipoRespuesta: 'escala',
+      valorMinimo: 1,
+      valorMaximo: 5,
+      orden: 2
+    },
+    {
+      categoria: 'Dominio de una segunda lengua',
+      aspecto: 'Formativo',
+      nroPregunta: 3,
+      enunciado: 'Promueve el uso de textos u otros materiales en idioma extranjero.',
+      tipoRespuesta: 'escala',
+      valorMinimo: 1,
+      valorMaximo: 5,
+      orden: 3
+    },
+    {
+      categoria: 'Planeación y organización del trabajo pedagógico',
+      aspecto: 'Destrezas para desarrollar el proceso de enseñanza y aprendizaje',
+      nroPregunta: 4,
+      enunciado: 'Presenta el plan de curso y explica su importancia para la formación profesional de los estudiantes.',
+      tipoRespuesta: 'escala',
+      valorMinimo: 1,
+      valorMaximo: 5,
+      orden: 4
+    },
+    {
+      categoria: 'Manejo de estrategias didácticas para el aprendizaje',
+      aspecto: 'Destrezas para desarrollar el proceso de enseñanza y aprendizaje',
+      nroPregunta: 5,
+      enunciado: 'Explica con claridad las actividades y los aprendizajes que se pretenden alcanzar.',
+      tipoRespuesta: 'escala',
+      valorMinimo: 1,
+      valorMaximo: 5,
+      orden: 5
+    },
+    {
+      categoria: 'Gestión de TIC y Recursos para el aprendizaje',
+      aspecto: 'Destrezas para desarrollar el proceso de enseñanza y aprendizaje',
+      nroPregunta: 6,
+      enunciado: 'Utiliza el aula virtual institucional para compartir recursos y materiales que complementan los procesos de enseñanza y aprendizaje.',
+      tipoRespuesta: 'escala',
+      valorMinimo: 1,
+      valorMaximo: 5,
+      orden: 6
+    },
+    {
+      categoria: 'Evaluación del aprendizaje',
+      aspecto: 'Destrezas para desarrollar el proceso de enseñanza y aprendizaje',
+      nroPregunta: 7,
+      enunciado: 'Realiza evaluaciones coherentes con los contenidos desarrollados en clase y con los aprendizajes esperados.',
+      tipoRespuesta: 'escala',
+      valorMinimo: 1,
+      valorMaximo: 5,
+      orden: 7
+    },
+    {
+      categoria: 'Evaluación del aprendizaje',
+      aspecto: 'Comunicación',
+      nroPregunta: 8,
+      enunciado: 'Escribe recomendaciones públicas y privadas en el aula virtual del curso a partir de los resultados de las evaluaciones para mejorar el proceso de aprendizaje.',
+      tipoRespuesta: 'escala',
+      valorMinimo: 1,
+      valorMaximo: 5,
+      orden: 8
+    },
+    {
+      categoria: 'Gestión del aprendizaje autónomo y autoregulado',
+      aspecto: 'Destrezas para desarrollar el proceso de enseñanza y aprendizaje',
+      nroPregunta: 9,
+      enunciado: 'Propone actividades de aprendizaje fuera del aula orientadas a preparar o complementar los contenidos del curso.',
+      tipoRespuesta: 'escala',
+      valorMinimo: 1,
+      valorMaximo: 5,
+      orden: 9
+    },
+    {
+      categoria: 'Gestión de un clima favorable para el desarrollo del aprendizaje',
+      aspecto: 'Comunicación',
+      nroPregunta: 10,
+      enunciado: 'Establece normas y acuerdos para que exista un clima de respeto mutuo.',
+      tipoRespuesta: 'escala',
+      valorMinimo: 1,
+      valorMaximo: 5,
+      orden: 10
+    },
+    {
+      categoria: 'Comunicación asertiva',
+      aspecto: 'Comunicación',
+      nroPregunta: 11,
+      enunciado: 'Se expresa con claridad, coherencia y precisión.',
+      tipoRespuesta: 'escala',
+      valorMinimo: 1,
+      valorMaximo: 5,
+      orden: 11
+    },
+    {
+      categoria: 'Observancia de los principios institucionales',
+      aspecto: 'Ético - Social',
+      nroPregunta: 12,
+      enunciado: 'Comienza y termina las clases a la hora prevista.',
+      tipoRespuesta: 'escala',
+      valorMinimo: 1,
+      valorMaximo: 5,
+      orden: 12
+    },
+    {
+      categoria: 'Respeto, buen trato, trabajo en Equipo',
+      aspecto: 'Ético - Social',
+      nroPregunta: 13,
+      enunciado: 'Inspira respeto y confiabilidad en su desempeño docente.',
+      tipoRespuesta: 'escala',
+      valorMinimo: 1,
+      valorMaximo: 5,
+      orden: 13
+    }
+  ];
+
+  let createdCount = 0;
+  
+  for (const question of questions) {
+    const existing = await prisma.question.findUnique({
+      where: {
+        templateId_nroPregunta: {
+          templateId: template.id,
+          nroPregunta: question.nroPregunta
+        }
+      }
+    });
+
+    if (!existing) {
+      await prisma.question.create({
+        data: {
+          ...question,
+          templateId: template.id
+        }
+      });
+      createdCount++;
+      console.log(`  ✅ Pregunta ${question.nroPregunta}: ${question.enunciado.substring(0, 50)}...`);
+    } else {
+      console.log(`  ⏭️  Pregunta ${question.nroPregunta} ya existe`);
+    }
+  }
+
+  console.log(`\n✅ ${createdCount} preguntas creadas\n`);
+}
+
+/**
  * Función principal de seed
  */
 async function main() {
@@ -357,8 +544,11 @@ async function main() {
     // Seed de carreras
     await seedCareers();
 
-    // seed de materias
+    // Seed de materias
     await seedSubjects();
+
+    // Seed de plantilla de evaluación
+    await seedEvaluationTemplate();
 
     console.log('🎉 Seed completado exitosamente!\n');
   } catch (error) {

@@ -46,7 +46,14 @@ export class SubjectModel {
         nombre: true,
         codigo: true,
         semestre: true,
-        activo: true
+        activo: true,
+        teacher: {
+          select: {
+            id: true,
+            nombreCompleto: true,
+            email: true
+          }
+        }
       }
     });
   }

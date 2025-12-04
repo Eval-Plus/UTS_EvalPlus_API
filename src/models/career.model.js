@@ -56,6 +56,24 @@ export class CareerModel {
   }
 
   /**
+   * Obtener una carrera por ID (solo datos básicos, sin relaciones)
+   */
+  static async findByIdBasic(id) {
+    return await prisma.career.findUnique({
+      where: { id: parseInt(id) },
+      select: {
+        id: true,
+        nombre: true,
+        codigo: true,
+        icon: true,
+        color: true,
+        descripcion: true,
+        activo: true
+      }
+    });
+  }
+
+  /**
    * Obtener una carrera por código
    */
   static async findByCode(codigo) {

@@ -10,6 +10,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ==========================================
+// MÓDULO DE USUARIOS Y AUTENTICACIÓN
+// ==========================================
+
 // Usuario base - para TODOS (estudiantes, profesores, admins)
 model User {
   id                Int       @id @default(autoincrement())
@@ -22,11 +26,15 @@ model User {
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
   
-  // Relaciones
+  // Relaciones existentes
   roles             UserRole[]
   careers           UserCareer[]
   subjects          UserSubject[]
   taughtSubjects    Subject[] @relation("TeacherSubjects")
+  
+  // 🆕 Relaciones con evaluaciones
+  teacherEvaluations  Evaluation[]        @relation("TeacherEvaluations")
+  studentEvaluations  StudentEvaluation[] @relation("StudentEvaluations")
   
   @@map("users")
 }
@@ -57,6 +65,10 @@ model UserRole {
   @@unique([userId, roleId])
   @@map("user_roles")
 }
+
+// ==========================================
+// MÓDULO DE CARRERAS Y MATERIAS
+// ==========================================
 
 model Career {
   id          Int      @id @default(autoincrement())
@@ -91,10 +103,13 @@ model Subject {
   teacher  User?         @relation("TeacherSubjects", fields: [teacherId], references: [id], onDelete: SetNull)
   students UserSubject[]
   
+  // 🆕 Relación con evaluaciones
+  evaluations Evaluation[]
+  
   @@map("subjects")
 }
 
-// Tabla intermedia User-Career (reemplaza StudentCareer)
+// Tabla intermedia User-Career
 model UserCareer {
   id         Int      @id @default(autoincrement())
   userId     Int      @map("user_id")
@@ -108,7 +123,7 @@ model UserCareer {
   @@map("user_careers")
 }
 
-// Tabla intermedia User-Subject (reemplaza StudentSubject)
+// Tabla intermedia User-Subject
 model UserSubject {
   id         Int      @id @default(autoincrement())
   userId     Int      @map("user_id")
@@ -120,4 +135,114 @@ model UserSubject {
   
   @@unique([userId, subjectId])
   @@map("user_subjects")
+}
+
+// ==========================================
+// 🆕 MÓDULO DE EVALUACIONES
+// ==========================================
+
+// Plantilla de evaluación (reutilizable)
+model EvaluationTemplate {
+  id          Int      @id @default(autoincrement())
+  nombre      String   @db.VarChar(255)
+  descripcion String?  @db.Text
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Una plantilla tiene muchas preguntas
+  questions   Question[]
+  // Una plantilla puede usarse en muchas evaluaciones
+  evaluations Evaluation[]
+  
+  @@map("evaluation_templates")
+}
+
+// Preguntas del formulario
+model Question {
+  id            Int      @id @default(autoincrement())
+  templateId    Int      @map("template_id")
+  categoria     String   @db.VarChar(100)  // 'Competencia Disciplinaria', etc.
+  aspecto       String   @db.VarChar(100)  // 'Formativo', 'Pedagógico', etc.
+  nroPregunta   Int      @map("nro_pregunta")
+  enunciado     String   @db.Text
+  tipoRespuesta String   @default("escala") @map("tipo_respuesta") @db.VarChar(50) // 'escala', 'texto', 'si_no'
+  valorMinimo   Int?     @default(1) @map("valor_minimo")  // Para escala: 1-5
+  valorMaximo   Int?     @default(5) @map("valor_maximo")
+  esObligatoria Boolean  @default(true) @map("es_obligatoria")
+  orden         Int      @default(0)  // Para ordenar preguntas
+  activo        Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  template  EvaluationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  responses Response[]
+  
+  @@unique([templateId, nroPregunta])
+  @@map("questions")
+}
+
+// Evaluación asignada a un docente para una materia específica
+model Evaluation {
+  id             Int       @id @default(autoincrement())
+  templateId     Int       @map("template_id")
+  subjectId      Int       @map("subject_id")
+  teacherId      Int       @map("teacher_id")
+  periodo        String    @db.VarChar(50)  // '2024-1', '2024-2', etc.
+  fechaInicio    DateTime  @map("fecha_inicio")
+  fechaCierre    DateTime  @map("fecha_cierre")
+  esObligatoria  Boolean   @default(true) @map("es_obligatoria")
+  activo         Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  
+  template          EvaluationTemplate    @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  subject           Subject               @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher           User                  @relation("TeacherEvaluations", fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  // Respuestas de estudiantes
+  studentResponses  StudentEvaluation[]
+  
+  @@unique([subjectId, teacherId, periodo])
+  @@index([teacherId, periodo])
+  @@index([fechaInicio, fechaCierre])
+  @@map("evaluations")
+}
+
+// Registro de evaluación completada por estudiante
+model StudentEvaluation {
+  id             Int       @id @default(autoincrement())
+  evaluationId   Int       @map("evaluation_id")
+  studentId      Int       @map("student_id")
+  completada     Boolean   @default(false)
+  comentario     String?   @db.Text  // Comentario anónimo del estudiante
+  fechaInicio    DateTime? @map("fecha_inicio")  // Cuando empezó a responder
+  fechaCompleta  DateTime? @map("fecha_completa") // Cuando terminó
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  student    User       @relation("StudentEvaluations", fields: [studentId], references: [id], onDelete: Cascade)
+  
+  // Respuestas individuales a preguntas
+  responses  Response[]
+  
+  @@unique([evaluationId, studentId])
+  @@index([studentId, completada])
+  @@map("student_evaluations")
+}
+
+// Respuestas individuales a cada pregunta
+model Response {
+  id                  Int      @id @default(autoincrement())
+  studentEvaluationId Int      @map("student_evaluation_id")
+  questionId          Int      @map("question_id")
+  valorNumerico       Int?     @map("valor_numerico")  // Para preguntas de escala
+  valorTexto          String?  @map("valor_texto") @db.Text  // Para preguntas abiertas
+  createdAt           DateTime @default(now()) @map("created_at")
+  
+  studentEvaluation StudentEvaluation @relation(fields: [studentEvaluationId], references: [id], onDelete: Cascade)
+  question          Question          @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  @@unique([studentEvaluationId, questionId])
+  @@map("responses")
 }

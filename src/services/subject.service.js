@@ -29,10 +29,61 @@ export class SubjectService {
   /**
    * Obtiene todas las materias de un usuario filtradas por carrera
    * @param {number} userId - ID del usuario
-   * @returns {Array} Lista de materias
+   * @param {number} careerId - ID de la carrera
+   * @returns {Object} Objeto con información de la carrera y materias
    */
-  static async getUserSubjectsByCareer(userId, filter) {
-    return await SubjectModel.getSubjetcsByUserAndCareer(userId, filter);
+  static async getUserSubjectsByCareer(userId, careerId) {
+    try {
+      logger.info(`Obteniendo materias del usuario ${userId} para carrera ${careerId}`);
+
+      // 1. Verificar que la carrera existe
+      const career = await CareerModel.findByIdBasic(careerId);
+      if (!career) {
+        logger.warn(`Carrera ${careerId} no encontrada`);
+        throw new Error('Carrera no encontrada');
+      }
+
+      // 2. Verificar que el usuario está inscrito en esa carrera
+      const userCareers = await CareerModel.getCareersByUserId(userId);
+      const isEnrolledInCareer = userCareers.some(c => c.id === careerId);
+
+      if (!isEnrolledInCareer) {
+        logger.warn(`Usuario ${userId} no está inscrito en carrera ${careerId}`);
+        throw new Error(`No tienes materias inscritas en la carrera "${career.nombre}" porque no estás inscrito en ella`);
+      }
+
+      // 3. Obtener las materias del usuario en esa carrera
+      const subjects = await SubjectModel.getSubjetcsByUserAndCareer(userId, { careerId });
+
+      // 4. Si no tiene materias inscritas en esa carrera
+      if (subjects.length === 0) {
+        logger.info(`Usuario ${userId} no tiene materias en carrera ${careerId}`);
+        throw new Error(`No tienes materias inscritas en la carrera "${career.nombre}"`);
+      }
+
+      // 5. Formatear el campo teacher
+      const formattedSubjects = subjects.map(subject => ({
+        ...subject,
+        teacher: subject.teacher ? subject.teacher.nombreCompleto : "Sin profesor"
+      }));
+
+      logger.success(`${subjects.length} materias encontradas para usuario ${userId} en carrera ${careerId}`);
+
+      return {
+        career: {
+          id: career.id,
+          nombre: career.nombre,
+          codigo: career.codigo,
+          icon: career.icon,
+          color: career.color
+        },
+        subjects: formattedSubjects,
+        total: formattedSubjects.length
+      };
+    } catch (error) {
+      logger.error('Error obteniendo materias del usuario por carrera', error);
+      throw error;
+    }
   }
 
   /**
