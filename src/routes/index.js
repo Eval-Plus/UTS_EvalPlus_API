@@ -9,6 +9,7 @@ import careerRoutes from './career.routes.js';
 import subjectRoutes from './subject.routes.js';
 import roleRoutes from './role.routes.js';
 import questionRoutes from './question.routes.js';
+import evaluationRoutes from './evaluation.routes.js';
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.use('/careers', careerRoutes);
 router.use('/subjects', subjectRoutes);
 router.use('/roles', roleRoutes);
 router.use('/questions', questionRoutes);
+router.use('/evaluations', evaluationRoutes);
 
 /**
  * Ruta de health check
