@@ -1,0 +1,273 @@
+import prisma from '../config/prisma.js';
+
+export class StudentEvaluationModel {
+  /**
+   * Crear un nuevo registro de evaluación de estudiante
+   * @param {Object} data - Datos de la evaluación
+   * @returns {Object} Evaluación creada
+   */
+  static async create(data) {
+    return await prisma.studentEvaluation.create({
+      data: {
+        evaluationId: parseInt(data.evaluationId),
+        studentId: parseInt(data.studentId),
+        completada: false,
+        fechaInicio: new Date()
+      },
+      include: {
+        evaluation: {
+          include: {
+            subject: { select: { nombre: true, codigo: true } },
+            teacher: { select: { nombreCompleto: true } }
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Buscar evaluación de estudiante por ID
+   * @param {number} id - ID de la evaluación del estudiante
+   * @returns {Object|null} Evaluación encontrada
+   */
+  static async findById(id) {
+    return await prisma.studentEvaluation.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        evaluation: {
+          include: {
+            subject: { select: { nombre: true, codigo: true } },
+            teacher: { select: { nombreCompleto: true } },
+            template: { select: { nombre: true } }
+          }
+        },
+        student: {
+          select: { id: true, nombreCompleto: true, email: true }
+        },
+        responses: {
+          include: {
+            question: true
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Buscar evaluación de estudiante por evaluationId y studentId
+   * @param {number} evaluationId - ID de la evaluación
+   * @param {number} studentId - ID del estudiante
+   * @returns {Object|null} Evaluación encontrada
+   */
+  static async findByEvaluationAndStudent(evaluationId, studentId) {
+    return await prisma.studentEvaluation.findUnique({
+      where: {
+        evaluationId_studentId: {
+          evaluationId: parseInt(evaluationId),
+          studentId: parseInt(studentId)
+        }
+      },
+      include: {
+        responses: {
+          include: {
+            question: true
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Obtener todas las evaluaciones de un estudiante
+   * @param {number} studentId - ID del estudiante
+   * @param {boolean} completada - Filtrar por completadas/pendientes
+   * @returns {Array} Lista de evaluaciones
+   */
+  static async findByStudent(studentId, completada = null) {
+    const where = { studentId: parseInt(studentId) };
+    
+    if (completada !== null) {
+      where.completada = completada;
+    }
+
+    return await prisma.studentEvaluation.findMany({
+      where,
+      include: {
+        evaluation: {
+          include: {
+            subject: { select: { nombre: true, codigo: true } },
+            teacher: { select: { nombreCompleto: true } }
+          }
+        },
+        responses: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  /**
+   * Obtener todas las evaluaciones completadas de una evaluación específica
+   * @param {number} evaluationId - ID de la evaluación
+   * @returns {Array} Lista de evaluaciones completadas
+   */
+  static async findCompletedByEvaluation(evaluationId) {
+    return await prisma.studentEvaluation.findMany({
+      where: {
+        evaluationId: parseInt(evaluationId),
+        completada: true
+      },
+      include: {
+        student: {
+          select: { id: true, nombreCompleto: true }
+        },
+        responses: {
+          include: {
+            question: true
+          }
+        }
+      },
+      orderBy: { fechaCompleta: 'desc' }
+    });
+  }
+
+  /**
+   * Actualizar evaluación de estudiante
+   * @param {number} id - ID de la evaluación
+   * @param {Object} data - Datos a actualizar
+   * @returns {Object} Evaluación actualizada
+   */
+  static async update(id, data) {
+    const updateData = {};
+
+    if (data.completada !== undefined) updateData.completada = data.completada;
+    if (data.comentario !== undefined) updateData.comentario = data.comentario;
+    if (data.fechaInicio !== undefined) updateData.fechaInicio = new Date(data.fechaInicio);
+    if (data.fechaCompleta !== undefined) updateData.fechaCompleta = new Date(data.fechaCompleta);
+
+    return await prisma.studentEvaluation.update({
+      where: { id: parseInt(id) },
+      data: updateData,
+      include: {
+        evaluation: true,
+        responses: true
+      }
+    });
+  }
+
+  /**
+   * Marcar evaluación como completada
+   * @param {number} id - ID de la evaluación del estudiante
+   * @param {string} comentario - Comentario opcional del estudiante
+   * @returns {Object} Evaluación actualizada
+   */
+  static async markAsCompleted(id, comentario = null) {
+    return await prisma.studentEvaluation.update({
+      where: { id: parseInt(id) },
+      data: {
+        completada: true,
+        comentario: comentario,
+        fechaCompleta: new Date()
+      },
+      include: {
+        evaluation: true,
+        responses: true
+      }
+    });
+  }
+
+  /**
+   * Verificar si un estudiante ya tiene una evaluación iniciada o completada
+   * @param {number} evaluationId - ID de la evaluación
+   * @param {number} studentId - ID del estudiante
+   * @returns {boolean} True si existe
+   */
+  static async exists(evaluationId, studentId) {
+    const evaluation = await this.findByEvaluationAndStudent(evaluationId, studentId);
+    return !!evaluation;
+  }
+
+  /**
+   * Contar evaluaciones completadas de una evaluación
+   * @param {number} evaluationId - ID de la evaluación
+   * @returns {number} Cantidad de evaluaciones completadas
+   */
+  static async countCompletedByEvaluation(evaluationId) {
+    return await prisma.studentEvaluation.count({
+      where: {
+        evaluationId: parseInt(evaluationId),
+        completada: true
+      }
+    });
+  }
+
+  /**
+   * Obtener progreso de una evaluación (% completado)
+   * @param {number} evaluationId - ID de la evaluación
+   * @returns {Object} Estadísticas de progreso
+   */
+  static async getEvaluationProgress(evaluationId) {
+    // Obtener total de estudiantes inscritos en la materia
+    const evaluation = await prisma.evaluation.findUnique({
+      where: { id: parseInt(evaluationId) },
+      include: {
+        subject: {
+          include: {
+            students: true
+          }
+        }
+      }
+    });
+
+    if (!evaluation) {
+      return null;
+    }
+
+    const totalStudents = evaluation.subject.students.length;
+    const completed = await this.countCompletedByEvaluation(evaluationId);
+    const pending = totalStudents - completed;
+    const percentage = totalStudents > 0 ? ((completed / totalStudents) * 100).toFixed(2) : 0;
+
+    return {
+      totalStudents,
+      completed,
+      pending,
+      percentage: parseFloat(percentage)
+    };
+  }
+
+  /**
+   * Eliminar evaluación de estudiante (solo para testing/admin)
+   * @param {number} id - ID de la evaluación
+   * @returns {Object} Evaluación eliminada
+   */
+  static async delete(id) {
+    return await prisma.studentEvaluation.delete({
+      where: { id: parseInt(id) }
+    });
+  }
+
+  /**
+   * Obtener comentarios anónimos de una evaluación
+   * @param {number} evaluationId - ID de la evaluación
+   * @returns {Array} Lista de comentarios (sin datos del estudiante)
+   */
+  static async getAnonymousComments(evaluationId) {
+    const evaluations = await prisma.studentEvaluation.findMany({
+      where: {
+        evaluationId: parseInt(evaluationId),
+        completada: true,
+        comentario: { not: null }
+      },
+      select: {
+        id: true,
+        comentario: true,
+        fechaCompleta: true
+      },
+      orderBy: { fechaCompleta: 'desc' }
+    });
+
+    return evaluations;
+  }
+}
+
+export default StudentEvaluationModel;

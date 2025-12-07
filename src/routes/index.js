@@ -10,6 +10,7 @@ import subjectRoutes from './subject.routes.js';
 import roleRoutes from './role.routes.js';
 import questionRoutes from './question.routes.js';
 import evaluationRoutes from './evaluation.routes.js';
+import studentevaluationRoutes from './student-evaluation.routes.js';
 
 const router = Router();
 
@@ -22,6 +23,7 @@ router.use('/subjects', subjectRoutes);
 router.use('/roles', roleRoutes);
 router.use('/questions', questionRoutes);
 router.use('/evaluations', evaluationRoutes);
+router.use('/student-evaluations', studentevaluationRoutes);
 
 /**
  * Ruta de health check
