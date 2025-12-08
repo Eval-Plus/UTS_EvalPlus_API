@@ -90,7 +90,7 @@ model Career {
 model Subject {
   id            Int      @id @default(autoincrement())
   nombre        String   @db.VarChar(255)
-  codigo        String   @unique @db.VarChar(50)
+  codigo        String   @db.VarChar(50)
   careerId      Int      @map("career_id")
   teacherId     Int?     @map("teacher_id")
   semestre      Int      @default(1)
@@ -105,7 +105,10 @@ model Subject {
   
   // 🆕 Relación con evaluaciones
   evaluations Evaluation[]
-  
+
+  // Codigo unico por carrera (para permitir DCB028V en multiples carreras)
+  @@unique([codigo, careerId])
+  @@index([careerId])
   @@map("subjects")
 }
 

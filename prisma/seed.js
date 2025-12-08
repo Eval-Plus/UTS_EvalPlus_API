@@ -1339,11 +1339,22 @@ async function seedSubjects() {
       continue;
     }
 
+    if (subjects.length === 0) {
+      console.log(`  📭 ${careerCode}: Sin materias definidas (agregar después)`);
+      continue;
+    }
+
     console.log(`\n  📚 Procesando materias de ${careerCode}:`);
 
     for (const subject of subjects) {
+      // ✅ CAMBIO CLAVE: Buscar por código Y careerId
       const existing = await prisma.subject.findUnique({
-        where: { codigo: subject.codigo }
+        where: {
+          codigo_careerId: {
+            codigo: subject.codigo,
+            careerId: careerId
+          }
+        }
       });
 
       if (!existing) {
@@ -1356,13 +1367,14 @@ async function seedSubjects() {
         console.log(`    ✅ ${subject.nombre} (${subject.codigo})`);
         totalCreated++;
       } else {
-        console.log(`    ⏭️  ${subject.nombre} ya existe`);
+        console.log(`    ⭐️ ${subject.nombre} ya existe`);
       }
     }
   }
 
   console.log(`\n✅ ${totalCreated} materias creadas en total\n`);
 }
+
 
 /**
  * Seed de Plantilla de Evaluación y Preguntas
