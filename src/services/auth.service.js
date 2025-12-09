@@ -143,9 +143,9 @@ export class AuthService {
 
     // Configurar según el rol
     if (roleName === 'TEACHER') {
-      await EnrollmentService.setupTeacherAssignment(user.id);
+      await EnrollmentService.setupTeacherAssignment(user.id); // Ahora crea evaluaciones
     } else {
-      await EnrollmentService.setupStudentEnrollment(user.id);
+      await EnrollmentService.setupStudentEnrollment(user.id); // Ahora usa mismo semestre
     }
   }
 
