@@ -53,21 +53,6 @@ export class SubjectModel {
             nombreCompleto: true,
             email: true
           }
-        },
-        evaluations: {
-          where: {
-            activo: true,
-            fechaInicio: { lte: new Date() },
-            fechaCierre: { gte: new Date() }
-          },
-          select: {
-            id: true,
-            periodo: true,
-            fechaInicio: true,
-            fechaCierre: true
-          },
-          take: 1, // Solo evaluación activa
-          orderBy: { fechaCierre: 'desc' }
         }
       }
     });
@@ -362,7 +347,7 @@ export class SubjectModel {
   }
 
   /**
-   * 🆕 Obtener una materia aleatoria de una carrera
+   * Obtener una materia aleatoria de una carrera
    * @param {number} careerId - ID de la carrera
    * @returns {Object|null} Materia aleatoria
    */
@@ -383,7 +368,7 @@ export class SubjectModel {
   }
 
   /**
-   * 🆕 Obtener materias de una carrera y semestre específico (excluyendo una materia)
+   * Obtener materias de una carrera y semestre específico (excluyendo una materia)
    * @param {number} careerId - ID de la carrera
    * @param {number} semestre - Número del semestre
    * @param {number} excludeSubjectId - ID de materia a excluir
@@ -414,7 +399,7 @@ export class SubjectModel {
   }
 
   /**
-   * 🆕 Obtener materias de un semestre específico de una carrera (para inscripción aleatoria)
+   * Obtener materias de un semestre específico de una carrera (para inscripción aleatoria)
    * @param {number} careerId - ID de la carrera
    * @param {number} semestre - Número del semestre
    * @param {number} count - Cantidad de materias a retornar
@@ -443,7 +428,7 @@ export class SubjectModel {
   }
 
   /**
-   * 🆕 Obtener todas las materias de una carrera agrupadas por semestre
+   * Obtener todas las materias de una carrera agrupadas por semestre
    * @param {number} careerId - ID de la carrera
    * @returns {Object} Materias agrupadas por semestre
    */
@@ -470,22 +455,6 @@ export class SubjectModel {
     }, {});
 
     return grouped;
-  }
-
-  /**
-   * Actualización del método existente para usar la nueva lógica
-   * @deprecated Usar getRandomSubjectsBySemester en su lugar
-   */
-  static async getRandomSubjectsByCareer(careerId, count = 3) {
-    // Primero obtener una materia aleatoria para determinar el semestre
-    const randomSubject = await this.getRandomSubjectByCareer(careerId);
-    
-    if (!randomSubject) {
-      return [];
-    }
-
-    // Obtener materias del mismo semestre
-    return await this.getRandomSubjectsBySemester(careerId, randomSubject.semestre, count);
   }
 
   /**

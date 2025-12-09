@@ -62,10 +62,22 @@ export class SubjectService {
       }
 
       // 5. Formatear el campo teacher
-      const formattedSubjects = subjects.map(subject => ({
-        ...subject,
-        teacher: subject.teacher ? subject.teacher.nombreCompleto : "Sin profesor"
-      }));
+      const formattedSubjects = subjects.map(subject => {
+        // 🔍 Agrega este debug temporal para ver qué trae
+        console.log('🔍 Subject evaluations:', subject.evaluations);
+  
+        return {
+          ...subject,
+          teacher: subject.teacher ? subject.teacher.nombreCompleto : "Sin profesor",
+          evaluationId: subject.evaluations && subject.evaluations.length > 0 
+            ? subject.evaluations[0].id 
+            : null,
+          hasActiveEvaluation: subject.evaluations && subject.evaluations.length > 0,
+          evaluationPeriod: subject.evaluations && subject.evaluations.length > 0
+            ? subject.evaluations[0].periodo  // ✅ Asegúrate de que sea .periodo (no .period)
+            : null
+        };
+      });
 
       logger.success(`${subjects.length} materias encontradas para usuario ${userId} en carrera ${careerId}`);
 
@@ -77,7 +89,10 @@ export class SubjectService {
           icon: career.icon,
           color: career.color
         },
-        subjects: formattedSubjects,
+        subjects: formattedSubjects.map(s => {
+          const { evaluations, ...rest } = s;
+          return rest;
+        }),
         total: formattedSubjects.length
       };
     } catch (error) {
