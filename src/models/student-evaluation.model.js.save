@@ -67,22 +67,22 @@ export class StudentEvaluationModel {
           studentId: parseInt(studentId)
         }
       },
-      include: {
-        evaluation: {
-          include: {
-            subject: { select: { nombre: true, codigo: true } },
-            teacher: { select: { nombreCompleto: true } },
-            template: { select: { id: true, nombre: true } }  // ← AGREGAR
-          }
-        },
-        responses: {
-          include: {
-            question: true
-          }
+    include: {
+      evaluation: {
+        include: {
+          subject: { select: { nombre: true, codigo: true } },
+          teacher: { select: { nombreCompleto: true } },
+          template: { select: { id: true, nombre: true } }  // ← AGREGAR
+        }
+      },
+      responses: {
+        include: {
+          question: true
         }
       }
-    });
-  }
+    }
+  });
+}
 
   /**
    * Obtener todas las evaluaciones de un estudiante

@@ -34,8 +34,14 @@ export class StudentEvaluationService {
       const existing = await StudentEvaluationModel.findByEvaluationAndStudent(evaluationId, studentId);
       
       if (existing) {
-        logger.info(`Estudiante ${studentId} ya tiene evaluación ${evaluationId} iniciada`);
-        return existing;
+        // Si ya está completada, lanzar error específico
+        if (existing.completada) {
+          logger.warn(`Estudiante ${studentId} ya completó la evaluación ${evaluationId}`);
+          throw new Error('Ya completaste esta evaluación. No puedes modificar tus respuestas.');
+        }
+
+        logger.info(`Estudiante ${studentId} ya tiene evaluación ${evaluationId} iniciada (puede continuar)`);
+          return existing;
       }
 
       // Crear nueva evaluación de estudiante
