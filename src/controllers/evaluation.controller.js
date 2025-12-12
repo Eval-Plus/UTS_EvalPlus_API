@@ -122,6 +122,91 @@ export class EvaluationController {
   }
 
   /**
+  * Obtener TODAS las evaluaciones del estudiante (disponibles + completadas)
+  * con información unificada de estado
+  * GET /api/evaluations/student/all
+  */
+  static async getAllStudentEvaluations(req, res) {
+    try {
+      const studentId = req.user.id;
+      
+      // Obtener evaluaciones disponibles (activas)
+      const available = await EvaluationService.getStudentAvailableEvaluations(studentId);
+      
+      // Obtener evaluaciones completadas
+      const completed = await EvaluationService.getStudentCompletedEvaluations(studentId);
+      
+      // Formatear respuesta unificada
+      const allEvaluations = [
+        // Evaluaciones pendientes
+        ...available
+          .filter(ev => ev.studentResponses.length === 0)
+          .map(ev => ({
+            evaluationId: ev.id,
+            teacherName: ev.teacher.nombreCompleto,
+            teacherPhoto: ev.teacher.profilePicture,
+            subject: ev.subject.nombre,
+            subjectCode: ev.subject.codigo,
+            careerName: ev.subject.career?.nombre || 'Sin carrera',
+            period: ev.periodo,
+            fechaInicio: ev.fechaInicio,
+            fechaCierre: ev.fechaCierre,
+            isCompleted: false,
+            completedDate: null
+          })),
+        
+        // Evaluaciones completadas
+        ...completed.map(ev => {
+          const response = ev.studentResponses?.[0];
+          return {
+            evaluationId: ev.id,
+            teacherName: ev.teacher.nombreCompleto,
+            teacherPhoto: null, // No viene en completed
+            subject: ev.subject.nombre,
+            subjectCode: ev.subject.codigo,
+            careerName: ev.subject.career?.nombre || 'Sin carrera',
+            period: ev.periodo || 'N/A',
+            fechaInicio: null,
+            fechaCierre: null,
+            isCompleted: true,
+            completedDate: response?.fechaCompleta || ev.createdAt
+          };
+        })
+      ];
+      
+      // Ordenar: pendientes primero, luego completadas por fecha
+      allEvaluations.sort((a, b) => {
+        if (a.isCompleted !== b.isCompleted) {
+          return a.isCompleted ? 1 : -1;
+        }
+        if (a.isCompleted) {
+          return new Date(b.completedDate) - new Date(a.completedDate);
+        }
+        return new Date(a.fechaCierre) - new Date(b.fechaCierre);
+      });
+      
+      return successResponse(
+        res,
+        {
+          evaluations: allEvaluations,
+          total: allEvaluations.length,
+          pending: allEvaluations.filter(e => !e.isCompleted).length,
+          completed: allEvaluations.filter(e => e.isCompleted).length
+        },
+        'Evaluaciones obtenidas exitosamente',
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      console.error('Error al obtener evaluaciones del estudiante:', error);
+      return errorResponse(
+        res,
+        'Error al obtener evaluaciones',
+        HTTP_STATUS.INTERNAL_ERROR
+      );
+    }
+  }
+
+  /**
    * Obtener evaluaciones disponibles para el estudiante autenticado
    * GET /api/evaluations/student/available
    */

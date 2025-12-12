@@ -11,6 +11,18 @@ const router = Router();
 // ==========================================
 
 /**
+ * @route   GET /api/evaluations/student/all
+ * @desc    Obtener TODAS las evaluaciones del estudiante (pendientes + completadas)
+ * @access  Private (Student)
+ */
+router.get(
+  '/student/all',
+  Authenticate,
+  requireRole(ROLES.STUDENT),
+  EvaluationController.getAllStudentEvaluations
+);
+
+/**
  * @route   GET /api/evaluations/student/available
  * @desc    Obtener evaluaciones disponibles para el estudiante autenticado
  * @access  Private (Student)

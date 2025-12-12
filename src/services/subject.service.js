@@ -6,26 +6,11 @@
 import { SubjectModel } from '../models/subject.model.js';
 import { CareerModel } from '../models/career.model.js';
 import { createLogger } from '../utils/logger.js';
+import prisma from '../config/prisma.js';
 
 const logger = createLogger('SubjectService');
 
 export class SubjectService {
-  /**
-   * Obtener todas las materias activas
-   * @returns {Array} Lista de materias
-   */
-  static async getAllSubjects() {
-    try {
-      logger.info('Obteniendo todas las materias');
-      const subjects = await SubjectModel.findAll();
-      logger.success(`${subjects.length} materias obtenidas`);
-      return subjects;
-    } catch (error) {
-      logger.error('Error obteniendo materias', error);
-      throw error;
-    }
-  }
-
   /**
    * Obtiene todas las materias de un usuario filtradas por carrera
    * @param {number} userId - ID del usuario
@@ -52,7 +37,7 @@ export class SubjectService {
         throw new Error(`No tienes materias inscritas en la carrera "${career.nombre}" porque no estás inscrito en ella`);
       }
 
-      // 3. Obtener las materias del usuario en esa carrera
+      // 3. Obtener las materias del usuario en esa carrera con info de evaluación
       const subjects = await SubjectModel.getSubjetcsByUserAndCareer(userId, { careerId });
 
       // 4. Si no tiene materias inscritas en esa carrera
@@ -61,23 +46,40 @@ export class SubjectService {
         throw new Error(`No tienes materias inscritas en la carrera "${career.nombre}"`);
       }
 
-      // 5. Formatear el campo teacher
-      const formattedSubjects = subjects.map(subject => {
-        // 🔍 Agrega este debug temporal para ver qué trae
-        console.log('🔍 Subject evaluations:', subject.evaluations);
-  
-        return {
-          ...subject,
-          teacher: subject.teacher ? subject.teacher.nombreCompleto : "Sin profesor",
-          evaluationId: subject.evaluations && subject.evaluations.length > 0 
-            ? subject.evaluations[0].id 
-            : null,
-          hasActiveEvaluation: subject.evaluations && subject.evaluations.length > 0,
-          evaluationPeriod: subject.evaluations && subject.evaluations.length > 0
-            ? subject.evaluations[0].periodo  // ✅ Asegúrate de que sea .periodo (no .period)
-            : null
-        };
-      });
+      // 5. Para cada materia, verificar si la evaluación ya fue completada
+      const subjectsWithCompletionStatus = await Promise.all(
+        subjects.map(async (subject) => {
+          let isEvaluationCompleted = false;
+
+          if (subject.evaluations && subject.evaluations.length > 0) {
+            const evaluationId = subject.evaluations[0].id;
+
+            // Verificar si el estudiante ya completó esta evaluación
+            const studentEvaluation = await prisma.studentEvaluation.findFirst({
+              where: {
+                evaluationId: evaluationId,
+                studentId: userId,
+                completada: true,
+              },
+            });
+
+            isEvaluationCompleted = !!studentEvaluation;
+          }
+
+          return {
+            ...subject,
+            teacher: subject.teacher ? subject.teacher.nombreCompleto : "Sin profesor",
+            evaluationId: subject.evaluations && subject.evaluations.length > 0 
+              ? subject.evaluations[0].id 
+              : null,
+            hasActiveEvaluation: subject.evaluations && subject.evaluations.length > 0,
+            evaluationPeriod: subject.evaluations && subject.evaluations.length > 0
+              ? subject.evaluations[0].periodo
+              : null,
+            isEvaluationCompleted: isEvaluationCompleted, // 🆕 Campo agregado
+          };
+        })
+      );
 
       logger.success(`${subjects.length} materias encontradas para usuario ${userId} en carrera ${careerId}`);
 
@@ -89,14 +91,30 @@ export class SubjectService {
           icon: career.icon,
           color: career.color
         },
-        subjects: formattedSubjects.map(s => {
+        subjects: subjectsWithCompletionStatus.map(s => {
           const { evaluations, ...rest } = s;
           return rest;
         }),
-        total: formattedSubjects.length
+        total: subjectsWithCompletionStatus.length
       };
     } catch (error) {
       logger.error('Error obteniendo materias del usuario por carrera', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtener todas las materias activas
+   * @returns {Array} Lista de materias
+   */
+  static async getAllSubjects() {
+    try {
+      logger.info('Obteniendo todas las materias');
+      const subjects = await SubjectModel.findAll();
+      logger.success(`${subjects.length} materias obtenidas`);
+      return subjects;
+    } catch (error) {
+      logger.error('Error obteniendo materias', error);
       throw error;
     }
   }
@@ -173,7 +191,6 @@ export class SubjectService {
     try {
       logger.debug(`Obteniendo materias para carrera con código: ${careerCode}`);
       
-      // Verificar que la carrera existe
       const career = await CareerModel.findByCode(careerCode);
       if (!career) {
         logger.warn(`Carrera con código ${careerCode} no encontrada`);
@@ -216,18 +233,15 @@ export class SubjectService {
     try {
       logger.info(`Creando materia: ${data.nombre}`);
 
-      // Validar datos obligatorios
       if (!data.nombre || !data.codigo || !data.careerId || !data.professorName) {
         throw new Error('Faltan campos obligatorios: nombre, codigo, careerId, professorName');
       }
 
-      // Verificar que la carrera existe
       const career = await CareerModel.findById(data.careerId);
       if (!career) {
         throw new Error('La carrera especificada no existe');
       }
 
-      // Verificar si ya existe una materia con ese código
       const existingSubject = await this.getSubjectByCode(data.codigo);
       if (existingSubject) {
         logger.warn(`Ya existe una materia con código: ${data.codigo}`);
@@ -254,10 +268,8 @@ export class SubjectService {
     try {
       logger.info(`Actualizando materia ${id}`);
 
-      // Verificar que la materia existe
       const existingSubject = await this.getSubjectById(id);
 
-      // Si se está cambiando la carrera, verificar que existe
       if (data.careerId) {
         const career = await CareerModel.findById(data.careerId);
         if (!career) {
@@ -265,7 +277,6 @@ export class SubjectService {
         }
       }
 
-      // Si se está cambiando el código, verificar que no exista otro con ese código
       if (data.codigo && data.codigo !== existingSubject.codigo) {
         const subjectWithCode = await this.getSubjectByCode(data.codigo);
         if (subjectWithCode) {
@@ -292,13 +303,9 @@ export class SubjectService {
   static async deleteSubject(id) {
     try {
       logger.info(`Desactivando materia ${id}`);
-
-      // Verificar que la materia existe
       await this.getSubjectById(id);
-
       const deletedSubject = await SubjectModel.delete(id);
       logger.success(`Materia ${id} desactivada`);
-
       return deletedSubject;
     } catch (error) {
       logger.error(`Error desactivando materia ${id}`, error);
@@ -314,13 +321,9 @@ export class SubjectService {
   static async getSubjectUsers(subjectId) {
     try {
       logger.debug(`Obteniendo usuarios de materia ${subjectId}`);
-
-      // Verificar que la materia existe
       await this.getSubjectById(subjectId);
-
       const users = await SubjectModel.getUsers(subjectId);
       logger.success(`${users.length} usuarios encontrados en materia ${subjectId}`);
-
       return users;
     } catch (error) {
       logger.error(`Error obteniendo usuarios de materia ${subjectId}`, error);
@@ -337,11 +340,8 @@ export class SubjectService {
   static async enrollUser(userId, subjectId) {
     try {
       logger.info(`Inscribiendo usuario ${userId} en materia ${subjectId}`);
-
-      // Verificar que la materia existe
       await this.getSubjectById(subjectId);
 
-      // Verificar si ya está inscrito
       const isEnrolled = await SubjectModel.isUserEnrolled(userId, subjectId);
       if (isEnrolled) {
         logger.warn(`Usuario ${userId} ya está inscrito en materia ${subjectId}`);
@@ -350,7 +350,6 @@ export class SubjectService {
 
       const enrollment = await SubjectModel.enrollUser(userId, subjectId);
       logger.success(`Usuario ${userId} inscrito en materia ${subjectId}`);
-
       return enrollment;
     } catch (error) {
       logger.error(`Error inscribiendo usuario ${userId} en materia ${subjectId}`, error);
@@ -366,11 +365,8 @@ export class SubjectService {
   static async unenrollUser(userId, subjectId) {
     try {
       logger.info(`Desinscribiendo usuario ${userId} de materia ${subjectId}`);
-
-      // Verificar que la materia existe
       await this.getSubjectById(subjectId);
 
-      // Verificar si está inscrito
       const isEnrolled = await SubjectModel.isUserEnrolled(userId, subjectId);
       if (!isEnrolled) {
         logger.warn(`Usuario ${userId} no está inscrito en materia ${subjectId}`);
