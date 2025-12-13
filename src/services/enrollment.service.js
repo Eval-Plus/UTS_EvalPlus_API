@@ -1,43 +1,48 @@
 /**
- * Servicio de Inscripciones - ACTUALIZADO
- * Maneja inscripción de estudiantes (mismo semestre) y profesores (con evaluaciones)
+ * Servicio de Inscripciones - REFACTORIZADO
+ * Maneja inscripción de estudiantes (todas las carreras, 2 materias c/u) y profesores
  */
 
 import { CareerModel } from '../models/career.model.js';
 import { SubjectModel } from '../models/subject.model.js';
 import { EvaluationModel } from '../models/evaluation.model.js';
 import { EvaluationTemplateModel } from '../models/evaluation-template.model.js';
-import { AUTO_ASSIGNMENT } from '../config/constants.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('EnrollmentService');
 
-export class EnrollmentService {
-  /**
-   * Selecciona N carreras aleatorias
-   * @param {number} count - Cantidad de carreras a seleccionar
-   * @returns {Array<number>} IDs de carreras seleccionadas
-   */
-  static async getRandomCareers(count = AUTO_ASSIGNMENT.CAREERS_PER_STUDENT) {
-    const allCareers = await CareerModel.findAll();
+// 🆕 Constantes de configuración
+const STUDENT_CONFIG = {
+  MAX_SUBJECTS_PER_CAREER: 2,  // Máximo 2 materias por carrera
+  ENROLL_ALL_CAREERS: true      // Inscribir en todas las carreras
+};
 
-    if (allCareers.length === 0) {
-      logger.warn('No hay carreras disponibles para asignar');
+const TEACHER_CONFIG = {
+  AUTO_CREATE_EVALUATIONS: true,
+  EVALUATION_DURATION_MONTHS: 3
+};
+
+export class EnrollmentService {
+  // ==========================================
+  // MÉTODOS PARA ESTUDIANTES
+  // ==========================================
+
+  /**
+   * 🆕 Obtiene TODAS las carreras activas de la BD
+   * @returns {Array<number>} IDs de todas las carreras
+   */
+  static async getAllActiveCareerIds() {
+    try {
+      const careers = await CareerModel.findAll();
+      const careerIds = careers.map(c => c.id);
+
+      logger.info(`Total de carreras activas: ${careerIds.length}`);
+      
+      return careerIds;
+    } catch (error) {
+      logger.error('Error obteniendo todas las carreras', error);
       return [];
     }
-
-    if (allCareers.length <= count) {
-      return allCareers.map(c => c.id);
-    }
-
-    const shuffled = [...allCareers]
-      .sort(() => Math.random() - 0.5)
-      .slice(0, count)
-      .map(career => career.id);
-
-    logger.debug(`Se seleccionaron ${shuffled.length} carreras aleatorias`, { careerIds: shuffled });
-    
-    return shuffled;
   }
 
   /**
@@ -55,9 +60,14 @@ export class EnrollmentService {
         enrollments.push(enrollment);
         logger.success(`Usuario ${userId} inscrito en carrera ${careerId}`);
       } catch (error) {
-        logger.warn(`No se pudo inscribir usuario ${userId} en carrera ${careerId}`, {
-          error: error.message
-        });
+        // Si ya está inscrito, continuar sin error
+        if (error.code === 'P2002') {
+          logger.debug(`Usuario ${userId} ya inscrito en carrera ${careerId}`);
+        } else {
+          logger.warn(`Error inscribiendo usuario ${userId} en carrera ${careerId}`, {
+            error: error.message
+          });
+        }
       }
     }
 
@@ -65,110 +75,179 @@ export class EnrollmentService {
   }
 
   /**
-   * 🆕 Obtener materias del mismo semestre de una carrera
+   * 🆕 Obtiene materias de un semestre aleatorio por carrera
    * @param {number} careerId - ID de la carrera
-   * @param {number} count - Cantidad de materias
-   * @returns {Array<number>} IDs de materias del mismo semestre
+   * @param {number} maxSubjects - Máximo de materias a retornar (default: 2)
+   * @returns {Array<number>} IDs de materias seleccionadas
    */
-  static async getSubjectsFromSameSemester(careerId, count = AUTO_ASSIGNMENT.SUBJECTS_PER_CAREER) {
+  static async getRandomSubjectsFromCareer(careerId, maxSubjects = STUDENT_CONFIG.MAX_SUBJECTS_PER_CAREER) {
     try {
-      // 1. Obtener una materia aleatoria para determinar el semestre
-      const randomSubject = await SubjectModel.getRandomSubjectByCareer(careerId);
-
-      if (!randomSubject) {
+      // 1. Obtener todas las materias agrupadas por semestre
+      const subjectsBySemester = await SubjectModel.getSubjectsGroupedBySemester(careerId);
+      
+      // 2. Verificar que haya materias disponibles
+      const availableSemesters = Object.keys(subjectsBySemester);
+      if (availableSemesters.length === 0) {
         logger.warn(`No hay materias disponibles en carrera ${careerId}`);
         return [];
       }
 
-      logger.debug(`Materia seleccionada: ${randomSubject.nombre} (Semestre ${randomSubject.semestre})`);
-
-      // 2. Obtener materias del mismo semestre (incluyendo la primera)
-      const semesterSubjects = await SubjectModel.getRandomSubjectsBySemester(
-        careerId,
-        randomSubject.semestre,
-        count
-      );
-
-      logger.success(`${semesterSubjects.length} materias del semestre ${randomSubject.semestre} seleccionadas`);
+      // 3. Seleccionar un semestre aleatorio
+      const randomSemester = availableSemesters[
+        Math.floor(Math.random() * availableSemesters.length)
+      ];
       
-      return semesterSubjects;
+      const semesterSubjects = subjectsBySemester[randomSemester];
+      
+      logger.debug(`Carrera ${careerId}: Semestre ${randomSemester} seleccionado con ${semesterSubjects.length} materias`);
+
+      // 4. Si hay menos materias que el máximo, retornar todas
+      if (semesterSubjects.length <= maxSubjects) {
+        return semesterSubjects.map(s => s.id);
+      }
+
+      // 5. Seleccionar aleatoriamente hasta maxSubjects materias
+      const shuffled = [...semesterSubjects]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, maxSubjects);
+
+      logger.success(
+        `Carrera ${careerId}: ${shuffled.length} materias seleccionadas del semestre ${randomSemester}`
+      );
+      
+      return shuffled.map(s => s.id);
     } catch (error) {
-      logger.error(`Error obteniendo materias del mismo semestre en carrera ${careerId}`, error);
+      logger.error(`Error obteniendo materias de carrera ${careerId}`, error);
       return [];
     }
   }
 
   /**
-   * 🆕 Inscribe un usuario en materias del mismo semestre de sus carreras
+   * 🆕 Inscribe un usuario en materias de sus carreras
+   * Para cada carrera: semestre aleatorio + máximo 2 materias
    * @param {number} userId - ID del usuario
    * @param {Array<number>} careerIds - IDs de las carreras
-   * @returns {number} Total de materias asignadas
+   * @returns {Object} Resumen de inscripciones
    */
   static async enrollUserInCareerSubjects(userId, careerIds) {
-    logger.info(`Asignando materias del mismo semestre al usuario ${userId}...`);
+    logger.info(`Asignando materias al estudiante ${userId} en ${careerIds.length} carreras...`);
 
-    let totalAssigned = 0;
+    const enrollmentSummary = {
+      totalCareers: careerIds.length,
+      totalSubjectsAssigned: 0,
+      careerDetails: []
+    };
 
     for (const careerId of careerIds) {
       try {
-        // Obtener materias del mismo semestre
-        const subjectIds = await this.getSubjectsFromSameSemester(careerId);
+        // Obtener materias aleatorias de esta carrera
+        const subjectIds = await this.getRandomSubjectsFromCareer(careerId);
 
-        if (subjectIds.length > 0) {
-          const enrollments = await SubjectModel.enrollUserInMultipleSubjects(
-            userId,
-            subjectIds
-          );
-
-          totalAssigned += enrollments.length;
-          logger.success(
-            `Usuario ${userId}: ${enrollments.length} materias asignadas de carrera ${careerId}`
-          );
-        } else {
+        if (subjectIds.length === 0) {
           logger.warn(`No hay materias disponibles para carrera ${careerId}`);
+          enrollmentSummary.careerDetails.push({
+            careerId,
+            subjectsAssigned: 0,
+            success: false,
+            reason: 'Sin materias disponibles'
+          });
+          continue;
         }
+
+        // Inscribir en las materias seleccionadas
+        const enrollments = await SubjectModel.enrollUserInMultipleSubjects(
+          userId,
+          subjectIds
+        );
+
+        enrollmentSummary.totalSubjectsAssigned += enrollments.length;
+        enrollmentSummary.careerDetails.push({
+          careerId,
+          subjectsAssigned: enrollments.length,
+          success: true
+        });
+
+        logger.success(
+          `Usuario ${userId}: ${enrollments.length} materias asignadas en carrera ${careerId}`
+        );
       } catch (error) {
         logger.error(`Error asignando materias de carrera ${careerId}`, error);
+        enrollmentSummary.careerDetails.push({
+          careerId,
+          subjectsAssigned: 0,
+          success: false,
+          reason: error.message
+        });
       }
     }
 
-    logger.success(`Total de materias asignadas al usuario ${userId}: ${totalAssigned}`);
-    return totalAssigned;
+    logger.success(
+      `📊 Resumen estudiante ${userId}:\n` +
+      `   - Carreras procesadas: ${enrollmentSummary.totalCareers}\n` +
+      `   - Total materias asignadas: ${enrollmentSummary.totalSubjectsAssigned}`
+    );
+    
+    return enrollmentSummary;
   }
 
   /**
    * 🆕 Configuración completa de inscripción para estudiante
+   * Inscribe en TODAS las carreras con máximo 2 materias por carrera
    * @param {number} userId - ID del usuario
+   * @returns {Object} Resumen de la configuración
    */
   static async setupStudentEnrollment(userId) {
-    logger.student(`Configurando inscripción de estudiante ${userId}`);
+    logger.student(`🎓 Configurando inscripción de estudiante ${userId}`);
 
     try {
-      // 1. Asignar carreras aleatorias
-      const careerIds = await this.getRandomCareers();
+      // 1. Obtener TODAS las carreras activas
+      const careerIds = await this.getAllActiveCareerIds();
 
       if (careerIds.length === 0) {
-        logger.warn('No se pueden asignar carreras: no hay carreras disponibles');
-        return;
+        logger.warn('⚠️  No hay carreras disponibles en el sistema');
+        return {
+          success: false,
+          message: 'No hay carreras disponibles',
+          careers: 0,
+          subjects: 0
+        };
       }
 
-      // 2. Inscribir en carreras
-      await this.enrollUserInCareers(userId, careerIds);
-      logger.success(`Estudiante ${userId} inscrito en ${careerIds.length} carreras`);
+      // 2. Inscribir en todas las carreras
+      const careerEnrollments = await this.enrollUserInCareers(userId, careerIds);
+      logger.success(`✅ Estudiante ${userId} inscrito en ${careerEnrollments.length} carreras`);
 
-      // 3. Inscribir en materias del mismo semestre de esas carreras
-      const totalSubjects = await this.enrollUserInCareerSubjects(userId, careerIds);
+      // 3. Inscribir en materias (máximo 2 por carrera)
+      const subjectSummary = await this.enrollUserInCareerSubjects(userId, careerIds);
+
+      // 4. Resumen final
+      const result = {
+        success: true,
+        message: 'Inscripción completada exitosamente',
+        careers: careerEnrollments.length,
+        subjects: subjectSummary.totalSubjectsAssigned,
+        details: subjectSummary.careerDetails
+      };
+
       logger.success(
-        `Inscripción completada para estudiante ${userId}: ${careerIds.length} carreras, ${totalSubjects} materias del mismo semestre`
+        `✅ ¡Configuración completada para estudiante ${userId}!\n` +
+        `   📚 ${result.careers} carreras\n` +
+        `   📖 ${result.subjects} materias (máx. ${STUDENT_CONFIG.MAX_SUBJECTS_PER_CAREER} por carrera)`
       );
+
+      return result;
     } catch (error) {
       logger.error(`Error en configuración de estudiante ${userId}`, error);
       throw error;
     }
   }
 
+  // ==========================================
+  // MÉTODOS PARA PROFESORES
+  // ==========================================
+
   /**
-   * 🆕 Busca materias sin profesor que tengan estudiantes inscritos
+   * Busca materias sin profesor que tengan estudiantes inscritos
    * @returns {Array} Lista de materias disponibles con conteo de estudiantes
    */
   static async findSubjectsNeedingTeacher() {
@@ -185,8 +264,7 @@ export class EnrollmentService {
       }
 
       logger.info(
-        `Materias sin profesor con estudiantes: ${subjectsWithStudents.length}`,
-        { count: subjectsWithStudents.length }
+        `Materias sin profesor con estudiantes: ${subjectsWithStudents.length}`
       );
       
       return subjectsWithStudents;
@@ -197,10 +275,10 @@ export class EnrollmentService {
   }
 
   /**
-   * 🆕 Asigna profesor a materias y crea evaluaciones automáticamente
+   * Asigna profesor a materias
    * @param {number} teacherId - ID del profesor
    * @param {Array} subjects - Materias a asignar
-   * @returns {Object} Resultado con materias y evaluaciones creadas
+   * @returns {Object} Resultado con materias asignadas
    */
   static async assignTeacherToSubjects(teacherId, subjects) {
     let assignedCount = 0;
@@ -230,14 +308,19 @@ export class EnrollmentService {
   }
 
   /**
-   * 🆕 Crear evaluaciones para las materias asignadas a un profesor
+   * Crear evaluaciones para las materias asignadas a un profesor
    * @param {number} teacherId - ID del profesor
    * @param {Array} subjects - Materias asignadas
    * @returns {Array} Evaluaciones creadas
    */
   static async createEvaluationsForTeacher(teacherId, subjects) {
+    if (!TEACHER_CONFIG.AUTO_CREATE_EVALUATIONS) {
+      logger.info('Creación automática de evaluaciones deshabilitada');
+      return [];
+    }
+
     try {
-      logger.info(`Creando evaluaciones para profesor ${teacherId}...`);
+      logger.info(`📝 Creando evaluaciones para profesor ${teacherId}...`);
 
       // Obtener plantilla por defecto
       const template = await EvaluationTemplateModel.findDefault();
@@ -254,10 +337,10 @@ export class EnrollmentService {
       const semester = month <= 6 ? 1 : 2;
       const periodo = `${year}-${semester}`;
 
-      // Fechas de la evaluación (3 meses de duración)
+      // Fechas de la evaluación
       const fechaInicio = new Date();
       const fechaCierre = new Date();
-      fechaCierre.setMonth(fechaCierre.getMonth() + 3);
+      fechaCierre.setMonth(fechaCierre.getMonth() + TEACHER_CONFIG.EVALUATION_DURATION_MONTHS);
 
       const createdEvaluations = [];
 
@@ -299,12 +382,12 @@ export class EnrollmentService {
   }
 
   /**
-   * 🆕 Configuración completa de asignación para profesor
+   * Configuración completa de asignación para profesor
    * @param {number} teacherId - ID del profesor
    * @returns {Object} Resultado de la configuración
    */
   static async setupTeacherAssignment(teacherId) {
-    logger.teacher(`Configurando asignación de profesor ${teacherId}`);
+    logger.teacher(`🧑‍🏫 Configurando asignación de profesor ${teacherId}`);
 
     try {
       // 1. Buscar materias disponibles
