@@ -49,14 +49,49 @@ export class EvaluationService {
   }
 
   /**
-   * Obtener evaluaciones de un profesor
-   */
+  * Obtener evaluaciones de un profesor con datos formateados para Flutter
+  */
   static async getTeacherEvaluations(teacherId, periodo = null) {
     try {
       logger.info(`Obteniendo evaluaciones del profesor ${teacherId}`);
       const evaluations = await EvaluationModel.findByTeacher(teacherId, periodo);
-      logger.success(`${evaluations.length} evaluaciones encontradas para profesor ${teacherId}`);
-      return evaluations;
+      
+      // 🆕 Formatear datos para Flutter
+      const formattedEvaluations = evaluations.map(evaluation => {
+        const totalStudents = evaluation.subject.students?.length || 0;
+        const completedEvaluations = evaluation.studentResponses?.length || 0;
+        const pendingEvaluations = totalStudents - completedEvaluations;
+        
+        // 🆕 Calcular estado basado en fechas
+        const now = new Date();
+        let status = 'upcoming';
+        
+        if (now >= evaluation.fechaInicio && now <= evaluation.fechaCierre) {
+          status = 'active';
+        } else if (now > evaluation.fechaCierre) {
+          status = 'closed';
+        }
+        
+        return {
+          id: evaluation.id,
+          subjectName: evaluation.subject.nombre,
+          subjectCode: evaluation.subject.codigo,
+          careerName: evaluation.subject.career?.nombre || 'Sin carrera',
+          totalStudents,
+          completedEvaluations,
+          pendingEvaluations,
+          period: evaluation.periodo,
+          status,
+          fechaInicio: evaluation.fechaInicio,
+          fechaCierre: evaluation.fechaCierre,
+          // Datos adicionales por si se necesitan
+          templateId: evaluation.template.id,
+          templateName: evaluation.template.nombre
+        };
+      });
+      
+      logger.success(`${formattedEvaluations.length} evaluaciones formateadas para profesor ${teacherId}`);
+      return formattedEvaluations;
     } catch (error) {
       logger.error(`Error obteniendo evaluaciones del profesor ${teacherId}`, error);
       throw error;

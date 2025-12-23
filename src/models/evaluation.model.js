@@ -69,10 +69,15 @@ export class EvaluationModel {
             id: true, 
             nombre: true, 
             codigo: true,
-            career: { select: { nombre: true } }
+            career: { select: { nombre: true } },
+            // Incluir estudiantes para contar total
+            students: {
+              select: { userId: true }
+            }
           } 
         },
         studentResponses: {
+          where: { completada: true },
           select: {
             id: true,
             completada: true,
