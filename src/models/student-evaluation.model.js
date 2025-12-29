@@ -254,26 +254,71 @@ export class StudentEvaluationModel {
   }
 
   /**
-   * Obtener comentarios anónimos de una evaluación
-   * @param {number} evaluationId - ID de la evaluación
-   * @returns {Array} Lista de comentarios (sin datos del estudiante)
-   */
-  static async getAnonymousComments(evaluationId) {
-    const evaluations = await prisma.studentEvaluation.findMany({
-      where: {
-        evaluationId: parseInt(evaluationId),
-        completada: true,
-        comentario: { not: null }
-      },
-      select: {
-        id: true,
-        comentario: true,
-        fechaCompleta: true
-      },
-      orderBy: { fechaCompleta: 'desc' }
-    });
+  * Obtener comentarios anónimos de una evaluación con metadata
+  * @param {number} evaluationId - ID de la evaluación
+  * @param {Object} options - Opciones de paginación y filtros
+  * @returns {Object} Comentarios con metadata
+  */
+  static async getAnonymousComments(evaluationId, options = {}) {
+    const { page = 1, limit = 50 } = options;
+    const skip = (page - 1) * limit;
 
-    return evaluations;
+    const where = {
+      evaluationId: parseInt(evaluationId),
+      completada: true,
+      comentario: { not: null }
+    };
+
+    // Obtener comentarios y total en paralelo
+    const [comments, total] = await Promise.all([
+      prisma.studentEvaluation.findMany({
+        where,
+        select: {
+          id: true,
+          comentario: true,
+          fechaCompleta: true
+        },
+        orderBy: { fechaCompleta: 'desc' },
+        skip,
+        take: limit
+      }),
+      prisma.studentEvaluation.count({ where })
+    ]);
+
+    // Calcular metadata
+    const metadata = {
+      total,
+      promedioCaracteres: comments.length > 0
+        ? Math.round(
+            comments.reduce((sum, c) => sum + (c.comentario?.length || 0), 0) / 
+            comments.length
+          )
+        : 0,
+      fechaUltimoComentario: comments[0]?.fechaCompleta || null,
+      rangoFechas: comments.length > 0 
+        ? {
+            inicio: comments[comments.length - 1].fechaCompleta,
+            fin: comments[0].fechaCompleta
+          }
+        : null
+    };
+
+    // Formatear respuesta
+    return {
+      comments: comments.map(c => ({
+        id: c.id,
+        comentario: c.comentario,
+        fechaCompleta: c.fechaCompleta,
+        sentiment: 'neutral' // 🔮 Futuro: IA sentiment analysis
+      })),
+      metadata,
+      pagination: {
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasMore: page * limit < total
+      }
+    };
   }
 }
 
