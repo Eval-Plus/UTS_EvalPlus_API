@@ -342,13 +342,20 @@ export class StudentEvaluationController {
     try {
       const { evaluationId } = req.params;
 
-      const comments = await StudentEvaluationService.getAnonymousComments(
+      const result = await StudentEvaluationService.getAnonymousComments(
         parseInt(evaluationId)
       );
 
+      // Fix: Extraer el array de comentarios correctamente
+      // result ya contiene { comments: [], metadata: {}, pagination: {} }
       return successResponse(
         res,
-        { comments, total: comments.length },
+        {
+          comments: result.comments,     // Array de comentarios
+          total: result.metadata.total,  // Total desde metadata
+          metadata: result.metadata,     // Metadata completa (opt)
+          pagination: result.pagination  // Info de paginación (Opt)
+        },
         'Comentarios obtenidos exitosamente',
         HTTP_STATUS.OK
       );
