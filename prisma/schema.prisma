@@ -23,6 +23,11 @@ model User {
   profilePicture    String?   @map("profile_picture") @db.Text
   identificacion    String?   @unique @map("identificacion") @db.VarChar(50)
   isProfileComplete Boolean   @default(false) @map("is_profile_complete")
+  
+  // 🆕 FASE: Campos de tracking de login
+  firstLoginAt      DateTime? @map("first_login_at")
+  lastLoginAt       DateTime? @map("last_login_at")
+  
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
   
@@ -32,9 +37,12 @@ model User {
   subjects          UserSubject[]
   taughtSubjects    Subject[] @relation("TeacherSubjects")
   
-  // 🆕 Relaciones con evaluaciones
+  // Relaciones con evaluaciones
   teacherEvaluations  Evaluation[]        @relation("TeacherEvaluations")
   studentEvaluations  StudentEvaluation[] @relation("StudentEvaluations")
+  
+  // 🆕 FASE: Relación con logs de sincronización
+  syncLogs          SyncLog[]
   
   @@map("users")
 }
@@ -103,7 +111,7 @@ model Subject {
   teacher  User?         @relation("TeacherSubjects", fields: [teacherId], references: [id], onDelete: SetNull)
   students UserSubject[]
   
-  // 🆕 Relación con evaluaciones
+  // Relación con evaluaciones
   evaluations Evaluation[]
 
   // Codigo unico por carrera (para permitir DCB028V en multiples carreras)
@@ -119,6 +127,9 @@ model UserCareer {
   careerId   Int      @map("career_id")
   enrolledAt DateTime @default(now()) @map("enrolled_at")
   
+  // 🆕 FASE: Campo período
+  periodo    String?  @db.VarChar(50)
+  
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   career  Career  @relation(fields: [careerId], references: [id], onDelete: Cascade)
   
@@ -133,6 +144,9 @@ model UserSubject {
   subjectId  Int      @map("subject_id")
   enrolledAt DateTime @default(now()) @map("enrolled_at")
   
+  // 🆕 FASE: Campo período
+  periodo    String?  @db.VarChar(50)
+  
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   
@@ -141,7 +155,7 @@ model UserSubject {
 }
 
 // ==========================================
-// 🆕 MÓDULO DE EVALUACIONES
+// MÓDULO DE EVALUACIONES
 // ==========================================
 
 // Plantilla de evaluación (reutilizable)
@@ -248,4 +262,24 @@ model Response {
   
   @@unique([studentEvaluationId, questionId])
   @@map("responses")
+}
+
+// ==========================================
+// 🆕 MÓDULO DE ADMINISTRACIÓN
+// ==========================================
+
+// Tabla de logs de sincronización
+model SyncLog {
+  id          Int      @id @default(autoincrement())
+  adminId     Int      @map("admin_id")
+  tipo        String   @db.VarChar(50) // 'students', 'teachers', 'evaluations'
+  periodo     String   @db.VarChar(50) // '2025-1', '2025-2', etc.
+  resultado   Json     // { estudiantesInscritos: 150, errores: [], detalles: {...} }
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  
+  @@index([tipo, periodo])
+  @@index([adminId])
+  @@map("sync_logs")
 }
