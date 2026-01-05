@@ -95,6 +95,8 @@ export class AuthService {
       user = await UserModel.update(user.id, {
         nombreCompleto,
         profilePicture,
+        // Actualizar ultimo login
+        lastLoginAt: new Date(),
         updatedAt: new Date()
       });
       return { user, isNewUser: false };
@@ -110,6 +112,8 @@ export class AuthService {
         microsoftId,
         nombreCompleto,
         profilePicture,
+        // Actualizar ultimo login
+        lastLoginAt: new Date(),
         updatedAt: new Date()
       });
       return { user, isNewUser: false };
@@ -122,7 +126,10 @@ export class AuthService {
       email,
       nombreCompleto,
       profilePicture,
-      isProfileComplete: false
+      isProfileComplete: false,
+      // Tracking primer login
+      firstLoginAt: new Date(),
+      lastLoginAt: new Date()
     });
 
     return { user, isNewUser: true };

@@ -3,6 +3,9 @@ import { rolesData, careersData, subjectsData, questionsData } from './data.js';
 
 const prisma = new PrismaClient();
 
+// Constante de Periodo Academico actual;
+const CURRENT_PERIOD = '2025-1';
+
 // ==========================================
 // UTILIDADES
 // ==========================================

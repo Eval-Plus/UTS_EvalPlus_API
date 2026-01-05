@@ -11,6 +11,9 @@ import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('EnrollmentService');
 
+// Constante de periodo academico actual
+const CURRENT_PERIOD = '2025-1';
+
 // 🆕 Constantes de configuración
 const STUDENT_CONFIG = {
   MAX_SUBJECTS_PER_CAREER: 2,  // Máximo 2 materias por carrera
@@ -56,11 +59,16 @@ export class EnrollmentService {
 
     for (const careerId of careerIds) {
       try {
-        const enrollment = await CareerModel.enrollUser(userId, careerId);
+        // Crear insccripción con periodo
+        const enrollment = await SubjectModel.enrollUserInMultipleSubjects(
+          userId,
+          subjectIds,
+          CURRENT_PERIOD
+        );
+
         enrollments.push(enrollment);
-        logger.success(`Usuario ${userId} inscrito en carrera ${careerId}`);
+        logger.success(`Usuario ${userId} inscrito en carrera ${careerId} - Período: ${CURRENT_PERIOD}`);
       } catch (error) {
-        // Si ya está inscrito, continuar sin error
         if (error.code === 'P2002') {
           logger.debug(`Usuario ${userId} ya inscrito en carrera ${careerId}`);
         } else {
@@ -330,12 +338,8 @@ export class EnrollmentService {
         return [];
       }
 
-      // Determinar periodo actual (formato: YYYY-S)
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
-      const semester = month <= 6 ? 1 : 2;
-      const periodo = `${year}-${semester}`;
+      // Aqui ya no se calcula el periodo, se usa el periodo actual
+      const periodo = CURRENT_PERIOD;
 
       // Fechas de la evaluación
       const fechaInicio = new Date();

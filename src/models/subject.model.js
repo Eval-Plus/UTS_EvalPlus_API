@@ -318,11 +318,12 @@ export class SubjectModel {
   /**
    * Inscribir un usuario en una materia
    */
-  static async enrollUser(userId, subjectId) {
+  static async enrollUser(userId, subjectId, periodo = null) {
     return await prisma.userSubject.create({
       data: {
         userId: parseInt(userId),
-        subjectId: parseInt(subjectId)
+        subjectId: parseInt(subjectId),
+        periodo: preiodo || new Date().getFullYear() + '-1'
       },
       include: {
         user: true,
@@ -491,7 +492,7 @@ export class SubjectModel {
   /**
    * Inscribir un usuario en múltiples materias
    */
-  static async enrollUserInMultipleSubjects(userId, subjectIds) {
+  static async enrollUserInMultipleSubjects(userId, subjectIds, periodo = null) {
     const enrollments = [];
 
     for (const subjectId of subjectIds) {
@@ -499,7 +500,7 @@ export class SubjectModel {
         const isEnrolled = await this.isUserEnrolled(userId, subjectId);
 
         if (!isEnrolled) {
-          const enrollment = await this.enrollUser(userId, subjectId);
+          const enrollment = await this.enrollUser(userId, subjectId, periodo);
           enrollments.push(enrollment);
         }
       } catch (error) {
