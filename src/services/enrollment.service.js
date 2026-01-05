@@ -9,6 +9,8 @@ import { EvaluationModel } from '../models/evaluation.model.js';
 import { EvaluationTemplateModel } from '../models/evaluation-template.model.js';
 import { createLogger } from '../utils/logger.js';
 
+import prisma from '../config/prisma.js';
+
 const logger = createLogger('EnrollmentService');
 
 // Constante de periodo academico actual
@@ -60,11 +62,13 @@ export class EnrollmentService {
     for (const careerId of careerIds) {
       try {
         // Crear insccripción con periodo
-        const enrollment = await SubjectModel.enrollUserInMultipleSubjects(
-          userId,
-          subjectIds,
-          CURRENT_PERIOD
-        );
+        const enrollment = await prisma.userCareer.create({
+          data: {
+            userId: parseInt(userId),
+            careerId: parseInt(careerId),
+            periodo: CURRENT_PERIOD
+          }
+        });
 
         enrollments.push(enrollment);
         logger.success(`Usuario ${userId} inscrito en carrera ${careerId} - Período: ${CURRENT_PERIOD}`);
@@ -165,7 +169,8 @@ export class EnrollmentService {
         // Inscribir en las materias seleccionadas
         const enrollments = await SubjectModel.enrollUserInMultipleSubjects(
           userId,
-          subjectIds
+          subjectIds,
+          CURRENT_PERIOD
         );
 
         enrollmentSummary.totalSubjectsAssigned += enrollments.length;

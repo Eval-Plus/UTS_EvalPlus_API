@@ -323,7 +323,7 @@ export class SubjectModel {
       data: {
         userId: parseInt(userId),
         subjectId: parseInt(subjectId),
-        periodo: preiodo || new Date().getFullYear() + '-1'
+        periodo: periodo || new Date().getFullYear() + '-1'
       },
       include: {
         user: true,
