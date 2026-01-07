@@ -1,0 +1,91 @@
+import { Router } from 'express';
+import { AdminController } from '../controllers/admin.controller.js';
+import { Authenticate } from '../middlewares/auth.middleware.js';
+import { requireRole } from '../middlewares/role.middleware.js';
+import { ROLES } from '../config/constants.js';
+
+const router = Router();
+
+// Todas las rutas requieren autenticación y rol de ADMIN
+router.use(Authenticate);
+router.use(requireRole(ROLES.ADMIN));
+
+// ==========================================
+// SINCRONIZACIÓN
+// ==========================================
+
+/**
+ * @route   POST /api/admin/sync/students
+ * @desc    Sincronizar estudiantes (inscribir en carreras y materias)
+ * @body    { force?: boolean }
+ * @access  Private (Admin)
+ */
+router.post('/sync/students', AdminController.syncStudents);
+
+/**
+ * @route   POST /api/admin/sync/teachers
+ * @desc    Sincronizar profesores (asignar a materias)
+ * @body    { force?: boolean }
+ * @access  Private (Admin)
+ */
+router.post('/sync/teachers', AdminController.syncTeachers);
+
+/**
+ * @route   GET /api/admin/sync/logs
+ * @desc    Obtener historial de sincronizaciones
+ * @query   tipo?: 'students'|'teachers'|'evaluations'
+ * @query   periodo?: '2025-1'
+ * @query   limit?: number
+ * @access  Private (Admin)
+ */
+router.get('/sync/logs', AdminController.getSyncLogs);
+
+/**
+ * @route   GET /api/admin/sync/last/:tipo
+ * @desc    Obtener última sincronización por tipo
+ * @param   tipo - 'students'|'teachers'|'evaluations'
+ * @query   periodo?: '2025-1'
+ * @access  Private (Admin)
+ */
+router.get('/sync/last/:tipo', AdminController.getLastSync);
+
+// ==========================================
+// EVALUACIONES
+// ==========================================
+
+/**
+ * @route   POST /api/admin/evaluations/generate
+ * @desc    Generar evaluaciones masivas para un periodo
+ * @body    { periodo, fechaInicio, fechaCierre, templateId? }
+ * @access  Private (Admin)
+ */
+router.post('/evaluations/generate', AdminController.generateEvaluations);
+
+/**
+ * @route   GET /api/admin/evaluations/stats
+ * @desc    Obtener estadísticas de evaluaciones
+ * @query   periodo?: '2025-1'
+ * @access  Private (Admin)
+ */
+router.get('/evaluations/stats', AdminController.getEvaluationStats);
+
+// ==========================================
+// DASHBOARD Y REPORTES
+// ==========================================
+
+/**
+ * @route   GET /api/admin/dashboard
+ * @desc    Obtener dashboard con estadísticas globales
+ * @query   periodo?: '2025-1'
+ * @access  Private (Admin)
+ */
+router.get('/dashboard', AdminController.getDashboard);
+
+/**
+ * @route   GET /api/admin/users/pending-login
+ * @desc    Obtener usuarios que no han iniciado sesión
+ * @access  Private (Admin)
+ */
+router.get('/users/pending-login', AdminController.getPendingFirstLogin);
+
+export default router;

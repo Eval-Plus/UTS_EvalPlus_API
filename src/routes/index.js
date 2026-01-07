@@ -11,6 +11,7 @@ import roleRoutes from './role.routes.js';
 import questionRoutes from './question.routes.js';
 import evaluationRoutes from './evaluation.routes.js';
 import studentevaluationRoutes from './student-evaluation.routes.js';
+import adminRoutes from './admin.routes.js';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use('/roles', roleRoutes);
 router.use('/questions', questionRoutes);
 router.use('/evaluations', evaluationRoutes);
 router.use('/student-evaluations', studentevaluationRoutes);
+router.use('/admin', adminRoutes);
 
 /**
  * Ruta de health check

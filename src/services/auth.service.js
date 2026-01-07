@@ -11,6 +11,10 @@ import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('AuthService');
 
+// 🆕 CONFIGURACIÓN: Flag para deshabilitar inscripción automática
+// Cambiar a false cuando se quiera usar solo sincronización manual
+const ENABLE_AUTO_ENROLLMENT = process.env.ENABLE_AUTO_ENROLLMENT === 'true' || false;
+
 export class AuthService {
   /**
    * Procesa el usuario autenticado con OAuth (Microsoft)
@@ -148,11 +152,22 @@ export class AuthService {
     // Asignar rol
     await RoleService.assignRole(user.id, roleName);
 
-    // Configurar según el rol
+    // 🆕 VERIFICAR SI LA INSCRIPCIÓN AUTOMÁTICA ESTÁ HABILITADA
+    if (!ENABLE_AUTO_ENROLLMENT) {
+      logger.warn(
+        `⚠️  Inscripción automática DESHABILITADA para ${user.email}.\n` +
+        `   El administrador debe sincronizar manualmente.`
+      );
+      return;
+    }
+
+    // Configurar según el rol (solo si está habilitado)
+    logger.info(`✅ Inscripción automática habilitada - Procesando ${roleName}`);
+    
     if (roleName === 'TEACHER') {
-      await EnrollmentService.setupTeacherAssignment(user.id); // Ahora crea evaluaciones
-    } else {
-      await EnrollmentService.setupStudentEnrollment(user.id); // Ahora usa mismo semestre
+      await EnrollmentService.setupTeacherAssignment(user.id);
+    } else if (roleName === 'STUDENT') {
+      await EnrollmentService.setupStudentEnrollment(user.id);
     }
   }
 
@@ -258,7 +273,7 @@ export class AuthService {
    * @param {Object} user - Objeto usuario
    * @returns {Object} Usuario sanitizado
    */
-    static sanitizeUser(user) {
+  static sanitizeUser(user) {
     const { microsoftId, ...userData } = user;
 
     return {
@@ -289,6 +304,14 @@ export class AuthService {
       logger.error('Error verificando token de Microsoft', error);
       throw error;
     }
+  }
+
+  /**
+   * 🆕 Verifica si la inscripción automática está habilitada
+   * @returns {boolean}
+   */
+  static isAutoEnrollmentEnabled() {
+    return ENABLE_AUTO_ENROLLMENT;
   }
 }
 

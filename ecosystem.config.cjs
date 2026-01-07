@@ -2,7 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'evalplus-api',
-      script: './src/server.js',
+      script: 'npm',
+      args: 'run dev',
       instances: 1,
       exec_mode: 'fork',
       env: {
