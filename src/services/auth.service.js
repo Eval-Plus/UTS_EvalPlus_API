@@ -164,7 +164,10 @@ export class AuthService {
     // Configurar según el rol (solo si está habilitado)
     logger.info(`✅ Inscripción automática habilitada - Procesando ${roleName}`);
     
-    if (roleName === 'TEACHER') {
+    if (roleName === 'ADMIN') {
+      // 🆕 Los administradores no necesitan inscripciones automáticas
+      logger.info(`Administrador creado: ${user.email} - No requiere inscripciones`);
+    } else if (roleName === 'TEACHER') {
       await EnrollmentService.setupTeacherAssignment(user.id);
     } else if (roleName === 'STUDENT') {
       await EnrollmentService.setupStudentEnrollment(user.id);

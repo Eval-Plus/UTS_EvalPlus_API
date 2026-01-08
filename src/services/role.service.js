@@ -5,7 +5,7 @@
 
 import { UserModel } from '../models/user.model.js';
 import { RoleModel } from '../models/role.model.js';
-import { ROLES, TEACHER_EMAIL_KEYWORDS } from '../config/constants.js';
+import { ROLES, TEACHER_EMAIL_KEYWORDS, ADMIN_EMAIL_KEYWORDS } from '../config/constants.js';
 import { createLogger } from '../utils/logger.js';
 
 const logger = createLogger('RoleService');
@@ -34,11 +34,39 @@ export class RoleService {
   }
 
   /**
+   * Detecta si un email corresponde a un administrador
+   * @param {string} email - Email del usuario
+   * @returns {boolean} True si es administrador
+   */
+  static isAdminEmail(email) {
+    if (!email || typeof email !== 'string') {
+      return false;
+    }
+
+    const emailLower = email.toLowerCase();
+
+    // Verificar si contiene alguna palabra clave de administrador
+    const isAdmin = ADMIN_EMAIL_KEYWORDS.some(keyword =>
+      emailLower.includes(keyword)
+    );
+
+    logger.debug(`Email "${email}" es administrador: ${isAdmin}`);
+
+    return isAdmin;
+  }
+
+  /**
    * Determina el rol basado en el email
    * @param {string} email - Email del usuario
-   * @returns {string} Nombre del rol (TEACHER o STUDENT)
+   * @returns {string} Nombre del rol (ADMIN, TEACHER o STUDENT)
    */
   static determineRoleFromEmail(email) {
+    // Verificar primero si es administrador
+    if (this.isAdminEmail(email)) {
+      logger.info(`Rol determinado para "${email}": ${ROLES.ADMIN}`);
+      return ROLES.ADMIN;
+    }
+
     const isTeacher = this.isTeacherEmail(email);
     const role = isTeacher ? ROLES.TEACHER : ROLES.STUDENT;
 

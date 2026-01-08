@@ -12,6 +12,9 @@ export const ROLES = {
 // Palabras clave para detectar profesores en emails
 export const TEACHER_EMAIL_KEYWORDS = ['profesor', 'teacher', 'docente'];
 
+// Palabras clave para detectar administradores en emails
+export const ADMIN_EMAIL_KEYWORDS = ['admin', 'administrador', 'administrator', 'director', 'coordinador']
+
 // Configuración de asignación automática
 export const AUTO_ASSIGNMENT = {
   CAREERS_PER_STUDENT: 2,
@@ -114,6 +117,7 @@ export const PLATFORM = {
 export default {
   ROLES,
   TEACHER_EMAIL_KEYWORDS,
+  ADMIN_EMAIL_KEYWORDS,
   AUTO_ASSIGNMENT,
   PROFILE_STATUS,
   MESSAGES,
