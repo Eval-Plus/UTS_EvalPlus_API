@@ -475,6 +475,7 @@ export class AdminService {
       include: {
         admin: {
           select: {
+            id: true,
             nombreCompleto: true,
             email: true
           }
@@ -494,39 +495,55 @@ export class AdminService {
   static async getDashboard(periodo = CURRENT_PERIOD) {
     try {
       const [
+        // Totales generales
         totalEstudiantes,
         totalProfesores,
-        estudiantesInscritos,
-        profesoresAsignados,
+        totalEvaluaciones,
+
+        // Sincronizados en el periodo actual
+        estudiantesSincronizados,
+        profesoresInscritos,
+
+        // Evaluaciones del periodo
         evaluacionesActivas,
         evaluacionesCompletadas,
+
+        // Extra
         usuariosSinLogin
       ] = await Promise.all([
-        // Total de estudiantes
+        // 1. Total de estudiantes registrados
         prisma.user.count({
           where: { roles: { some: { role: { name: 'STUDENT' } } } }
         }),
 
-        // Total de profesores
+        // 2. Total de profesores registrados
         prisma.user.count({
           where: { roles: { some: { role: { name: 'TEACHER' } } } }
         }),
 
-        // Estudiantes con inscripciones en este periodo
+        // 3. Total de evaluaciones del periodo
+        prisma.evaluation.count({
+          where: { periodo, activo: true }
+        }),
+
+        // 4. Estudiantes con inscripciones en este periodo (sincronizados)
         prisma.userCareer.groupBy({
           by: ['userId'],
           where: { periodo },
           _count: true
-        }),
+        }).then(result => result.length),
 
-        // Profesores con materias asignadas
+        // 5. Profesores con materias asignadas (inscritos)
         prisma.subject.groupBy({
           by: ['teacherId'],
-          where: { teacherId: { not: null } },
+          where: { 
+            teacherId: { not: null },
+            activo: true
+          },
           _count: true
-        }),
+        }).then(result => result.length),
 
-        // Evaluaciones activas
+        // 6. Evaluaciones activas (aún abiertas)
         prisma.evaluation.count({
           where: {
             periodo,
@@ -535,7 +552,7 @@ export class AdminService {
           }
         }),
 
-        // Evaluaciones completadas
+        // 7. Evaluaciones completadas (respuestas completadas)
         prisma.studentEvaluation.count({
           where: {
             completada: true,
@@ -543,35 +560,86 @@ export class AdminService {
           }
         }),
 
-        // Usuarios sin primer login
+        // 8. Usuarios sin primer login
         prisma.user.count({
           where: { firstLoginAt: null }
         })
       ]);
 
-      // Calcular promedios de respuestas
-      const estadisticasEvaluaciones = await this.getEvaluationStats(periodo);
+      // Calcular estadísticas adicionales
+      const tasaCompletitudEstudiantes = totalEstudiantes > 0 
+        ? ((estudiantesSincronizados / totalEstudiantes) * 100).toFixed(2)
+        : 0;
+
+      const tasaCompletitudProfesores = totalProfesores > 0 
+        ? ((profesoresInscritos / totalProfesores) * 100).toFixed(2)
+        : 0;
+
+      const tasaCompletitudEvaluaciones = totalEvaluaciones > 0
+        ? ((evaluacionesCompletadas / totalEvaluaciones) * 100).toFixed(2)
+        : 0;
+
+      // Obtener últimas sincronizaciones
+      const [lastSyncStudents, lastSyncTeachers, lastSyncEvaluations] = await Promise.all([
+        this.getLastSyncLog('students', periodo),
+        this.getLastSyncLog('teachers', periodo),
+        this.getLastSyncLog('evaluations', periodo)
+      ]);
 
       return {
         periodo,
-        usuarios: {
-          totalEstudiantes,
-          totalProfesores,
-          estudiantesInscritos: estudiantesInscritos.length,
-          profesoresAsignados: profesoresAsignados.length,
-          usuariosSinLogin
+        
+        // Estadísticas principales (formato compatible con Flutter)
+        stats: {
+          // Estudiantes
+          totalStudents: totalEstudiantes,
+          syncedStudents: estudiantesSincronizados,
+          pendingStudents: totalEstudiantes - estudiantesSincronizados,
+          studentsSyncRate: parseFloat(tasaCompletitudEstudiantes),
+
+          // Profesores
+          totalTeachers: totalProfesores,
+          enrolledTeachers: profesoresInscritos,
+          pendingTeachers: totalProfesores - profesoresInscritos,
+          teachersEnrollRate: parseFloat(tasaCompletitudProfesores),
+
+          // Evaluaciones
+          totalEvaluations: totalEvaluaciones,
+          activeEvaluations: evaluacionesActivas,
+          completedEvaluations: evaluacionesCompletadas,
+          closedEvaluations: totalEvaluaciones - evaluacionesActivas,
+          evaluationsCompletionRate: parseFloat(tasaCompletitudEvaluaciones),
+
+          // Usuarios pendientes
+          pendingFirstLogin: usuariosSinLogin
         },
-        evaluaciones: {
-          activas: evaluacionesActivas,
-          completadas: evaluacionesCompletadas,
-          tasaCompletitud: estadisticasEvaluaciones.tasaCompletitud,
-          promedioGeneral: estadisticasEvaluaciones.promedioGeneral
+
+        // Últimas sincronizaciones
+        lastSyncs: {
+          students: lastSyncStudents ? {
+            id: lastSyncStudents.id,
+            createdAt: lastSyncStudents.createdAt,
+            admin: lastSyncStudents.admin,
+            resultado: lastSyncStudents.resultado
+          } : null,
+          
+          teachers: lastSyncTeachers ? {
+            id: lastSyncTeachers.id,
+            createdAt: lastSyncTeachers.createdAt,
+            admin: lastSyncTeachers.admin,
+            resultado: lastSyncTeachers.resultado
+          } : null,
+          
+          evaluations: lastSyncEvaluations ? {
+            id: lastSyncEvaluations.id,
+            createdAt: lastSyncEvaluations.createdAt,
+            admin: lastSyncEvaluations.admin,
+            resultado: lastSyncEvaluations.resultado
+          } : null
         },
-        ultimasSincronizaciones: {
-          estudiantes: await this.getLastSyncLog('students', periodo),
-          profesores: await this.getLastSyncLog('teachers', periodo),
-          evaluaciones: await this.getLastSyncLog('evaluations', periodo)
-        }
+
+        // Timestamp de generación
+        generatedAt: new Date().toISOString()
       };
     } catch (error) {
       logger.error('Error obteniendo dashboard', error);
