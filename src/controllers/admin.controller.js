@@ -74,7 +74,7 @@ export class AdminController {
       const logs = await AdminService.getSyncLogs({
         tipo,
         periodo,
-        adminId: null, // null = todos los admins
+        adminId: null,
         limit: limit ? parseInt(limit) : 50
       });
 
@@ -152,7 +152,6 @@ export class AdminController {
       const adminId = req.user.id;
       const { periodo, fechaInicio, fechaCierre, templateId } = req.body;
 
-      // Validar campos requeridos
       if (!periodo || !fechaInicio || !fechaCierre) {
         return errorResponse(
           res,
@@ -161,7 +160,6 @@ export class AdminController {
         );
       }
 
-      // Validar fechas
       const inicio = new Date(fechaInicio);
       const cierre = new Date(fechaCierre);
 
@@ -284,6 +282,107 @@ export class AdminController {
         res,
         stats,
         'Estadísticas de evaluaciones obtenidas',
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      console.error('Error obteniendo estadísticas:', error);
+      return errorResponse(
+        res,
+        'Error al obtener estadísticas',
+        HTTP_STATUS.INTERNAL_ERROR
+      );
+    }
+  }
+
+  // ==========================================
+  // 🆕 ANÁLISIS DE DOCENTES
+  // ==========================================
+
+  /**
+   * Obtener análisis detallado de todos los docentes
+   * GET /api/admin/analysis/teachers?periodo=2025-1&career=ING-SIS&sortBy=name
+   */
+  static async getTeachersAnalysis(req, res) {
+    try {
+      const { periodo, career, sortBy = 'name' } = req.query;
+
+      const analysis = await AdminService.getTeachersAnalysis({
+        periodo,
+        career,
+        sortBy
+      });
+
+      return successResponse(
+        res,
+        analysis,
+        'Análisis de docentes obtenido exitosamente',
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      console.error('Error obteniendo análisis de docentes:', error);
+      return errorResponse(
+        res,
+        'Error al obtener análisis de docentes',
+        HTTP_STATUS.INTERNAL_ERROR
+      );
+    }
+  }
+
+  /**
+   * Obtener análisis detallado de un docente específico
+   * GET /api/admin/analysis/teachers/:teacherId?periodo=2025-1
+   */
+  static async getTeacherAnalysis(req, res) {
+    try {
+      const { teacherId } = req.params;
+      const { periodo } = req.query;
+
+      const analysis = await AdminService.getTeacherAnalysis(
+        parseInt(teacherId),
+        periodo
+      );
+
+      if (!analysis) {
+        return errorResponse(
+          res,
+          'Docente no encontrado o sin datos',
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      return successResponse(
+        res,
+        analysis,
+        'Análisis del docente obtenido exitosamente',
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      console.error('Error obteniendo análisis del docente:', error);
+      return errorResponse(
+        res,
+        'Error al obtener análisis del docente',
+        HTTP_STATUS.INTERNAL_ERROR
+      );
+    }
+  }
+
+  /**
+   * Obtener estadísticas globales para análisis
+   * GET /api/admin/analysis/stats?periodo=2025-1&career=ING-SIS
+   */
+  static async getAnalysisStats(req, res) {
+    try {
+      const { periodo, career } = req.query;
+
+      const stats = await AdminService.getAnalysisStats({
+        periodo,
+        career
+      });
+
+      return successResponse(
+        res,
+        stats,
+        'Estadísticas globales obtenidas',
         HTTP_STATUS.OK
       );
     } catch (error) {

@@ -88,4 +88,36 @@ router.get('/dashboard', AdminController.getDashboard);
  */
 router.get('/users/pending-login', AdminController.getPendingFirstLogin);
 
+// ==========================================
+// 🆕 ANÁLISIS DE DOCENTES
+// ==========================================
+
+/**
+ * @route   GET /api/admin/analysis/teachers
+ * @desc    Obtener análisis completo de todos los docentes
+ * @query   periodo?: '2025-1'
+ * @query   career?: 'ING-SIS'|'ADM-EMP'|'DER' etc.
+ * @query   sortBy?: 'name'|'evaluations'|'completion'|'activity'
+ * @access  Private (Admin)
+ */
+router.get('/analysis/teachers', AdminController.getTeachersAnalysis);
+
+/**
+ * @route   GET /api/admin/analysis/teachers/:teacherId
+ * @desc    Obtener análisis detallado de un docente específico
+ * @param   teacherId - ID del docente
+ * @query   periodo?: '2025-1'
+ * @access  Private (Admin)
+ */
+router.get('/analysis/teachers/:teacherId', AdminController.getTeacherAnalysis);
+
+/**
+ * @route   GET /api/admin/analysis/stats
+ * @desc    Obtener estadísticas globales para análisis
+ * @query   periodo?: '2025-1'
+ * @query   career?: 'ING-SIS'|'ADM-EMP'|'DER' etc.
+ * @access  Private (Admin)
+ */
+router.get('/analysis/stats', AdminController.getAnalysisStats);
+
 export default router;
