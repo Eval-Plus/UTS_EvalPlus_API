@@ -1,14 +1,11 @@
 /**
  * Servicio de Inscripciones - REFACTORIZADO
- * Maneja inscripción de estudiantes (todas las carreras, 2 materias c/u) y profesores
+ * Maneja inscripción de estudiantes y profesores con nuevos límites
  */
 
 import { CareerModel } from '../models/career.model.js';
 import { SubjectModel } from '../models/subject.model.js';
-import { EvaluationModel } from '../models/evaluation.model.js';
-import { EvaluationTemplateModel } from '../models/evaluation-template.model.js';
 import { createLogger } from '../utils/logger.js';
-
 import prisma from '../config/prisma.js';
 
 const logger = createLogger('EnrollmentService');
@@ -16,15 +13,10 @@ const logger = createLogger('EnrollmentService');
 // Constante de periodo academico actual
 const CURRENT_PERIOD = '2025-1';
 
-// 🆕 Constantes de configuración
-const STUDENT_CONFIG = {
-  MAX_SUBJECTS_PER_CAREER: 2,  // Máximo 2 materias por carrera
-  ENROLL_ALL_CAREERS: true      // Inscribir en todas las carreras
-};
-
-const TEACHER_CONFIG = {
-  AUTO_CREATE_EVALUATIONS: true,
-  EVALUATION_DURATION_MONTHS: 3
+// 🆕 Límites de inscripción
+const ENROLLMENT_LIMITS = {
+  MAX_SUBJECTS_STUDENT: 7,  // 7 materias (1 por cada una de las 7 carreras)
+  MAX_SUBJECTS_TEACHER: 7   // 7 materias por docente
 };
 
 export class EnrollmentService {
@@ -87,12 +79,11 @@ export class EnrollmentService {
   }
 
   /**
-   * 🆕 Obtiene materias de un semestre aleatorio por carrera
+   * 🆕 Obtiene UNA materia aleatoria de un semestre aleatorio por carrera
    * @param {number} careerId - ID de la carrera
-   * @param {number} maxSubjects - Máximo de materias a retornar (default: 2)
-   * @returns {Array<number>} IDs de materias seleccionadas
+   * @returns {number|null} ID de materia seleccionada
    */
-  static async getRandomSubjectsFromCareer(careerId, maxSubjects = STUDENT_CONFIG.MAX_SUBJECTS_PER_CAREER) {
+  static async getOneRandomSubjectFromCareer(careerId) {
     try {
       // 1. Obtener todas las materias agrupadas por semestre
       const subjectsBySemester = await SubjectModel.getSubjectsGroupedBySemester(careerId);
@@ -101,7 +92,7 @@ export class EnrollmentService {
       const availableSemesters = Object.keys(subjectsBySemester);
       if (availableSemesters.length === 0) {
         logger.warn(`No hay materias disponibles en carrera ${careerId}`);
-        return [];
+        return null;
       }
 
       // 3. Seleccionar un semestre aleatorio
@@ -113,32 +104,26 @@ export class EnrollmentService {
       
       logger.debug(`Carrera ${careerId}: Semestre ${randomSemester} seleccionado con ${semesterSubjects.length} materias`);
 
-      // 4. Si hay menos materias que el máximo, retornar todas
-      if (semesterSubjects.length <= maxSubjects) {
-        return semesterSubjects.map(s => s.id);
-      }
-
-      // 5. Seleccionar aleatoriamente hasta maxSubjects materias
-      const shuffled = [...semesterSubjects]
-        .sort(() => Math.random() - 0.5)
-        .slice(0, maxSubjects);
+      // 4. Seleccionar una materia aleatoria del semestre
+      const randomSubject = semesterSubjects[
+        Math.floor(Math.random() * semesterSubjects.length)
+      ];
 
       logger.success(
-        `Carrera ${careerId}: ${shuffled.length} materias seleccionadas del semestre ${randomSemester}`
+        `Carrera ${careerId}: Materia ${randomSubject.nombre} seleccionada del semestre ${randomSemester}`
       );
       
-      return shuffled.map(s => s.id);
+      return randomSubject.id;
     } catch (error) {
-      logger.error(`Error obteniendo materias de carrera ${careerId}`, error);
-      return [];
+      logger.error(`Error obteniendo materia de carrera ${careerId}`, error);
+      return null;
     }
   }
 
   /**
-   * 🆕 Inscribe un usuario en materias de sus carreras
-   * Para cada carrera: semestre aleatorio + máximo 2 materias
+   * 🆕 Inscribe un usuario en UNA materia por cada carrera (total 7 materias)
    * @param {number} userId - ID del usuario
-   * @param {Array<number>} careerIds - IDs de las carreras
+   * @param {Array<number>} careerIds - IDs de las carreras (debe ser 7)
    * @returns {Object} Resumen de inscripciones
    */
   static async enrollUserInCareerSubjects(userId, careerIds) {
@@ -152,10 +137,10 @@ export class EnrollmentService {
 
     for (const careerId of careerIds) {
       try {
-        // Obtener materias aleatorias de esta carrera
-        const subjectIds = await this.getRandomSubjectsFromCareer(careerId);
+        // Obtener UNA materia aleatoria de esta carrera
+        const subjectId = await this.getOneRandomSubjectFromCareer(careerId);
 
-        if (subjectIds.length === 0) {
+        if (!subjectId) {
           logger.warn(`No hay materias disponibles para carrera ${careerId}`);
           enrollmentSummary.careerDetails.push({
             careerId,
@@ -166,25 +151,26 @@ export class EnrollmentService {
           continue;
         }
 
-        // Inscribir en las materias seleccionadas
-        const enrollments = await SubjectModel.enrollUserInMultipleSubjects(
+        // Inscribir en la materia seleccionada
+        const enrollment = await SubjectModel.enrollUser(
           userId,
-          subjectIds,
+          subjectId,
           CURRENT_PERIOD
         );
 
-        enrollmentSummary.totalSubjectsAssigned += enrollments.length;
+        enrollmentSummary.totalSubjectsAssigned += 1;
         enrollmentSummary.careerDetails.push({
           careerId,
-          subjectsAssigned: enrollments.length,
+          subjectId,
+          subjectsAssigned: 1,
           success: true
         });
 
         logger.success(
-          `Usuario ${userId}: ${enrollments.length} materias asignadas en carrera ${careerId}`
+          `Usuario ${userId}: 1 materia asignada en carrera ${careerId}`
         );
       } catch (error) {
-        logger.error(`Error asignando materias de carrera ${careerId}`, error);
+        logger.error(`Error asignando materia de carrera ${careerId}`, error);
         enrollmentSummary.careerDetails.push({
           careerId,
           subjectsAssigned: 0,
@@ -205,7 +191,7 @@ export class EnrollmentService {
 
   /**
    * 🆕 Configuración completa de inscripción para estudiante
-   * Inscribe en TODAS las carreras con máximo 2 materias por carrera
+   * Inscribe en TODAS las carreras con 1 materia por carrera (total 7 materias)
    * @param {number} userId - ID del usuario
    * @returns {Object} Resumen de la configuración
    */
@@ -217,7 +203,7 @@ export class EnrollmentService {
       const careerIds = await this.getAllActiveCareerIds();
 
       if (careerIds.length === 0) {
-        logger.warn('⚠️  No hay carreras disponibles en el sistema');
+        logger.warn('⚠️ No hay carreras disponibles en el sistema');
         return {
           success: false,
           message: 'No hay carreras disponibles',
@@ -226,14 +212,19 @@ export class EnrollmentService {
         };
       }
 
-      // 2. Inscribir en todas las carreras
+      // 2. Verificar que haya exactamente 7 carreras
+      if (careerIds.length !== 7) {
+        logger.warn(`⚠️ Se esperaban 7 carreras pero se encontraron ${careerIds.length}`);
+      }
+
+      // 3. Inscribir en todas las carreras
       const careerEnrollments = await this.enrollUserInCareers(userId, careerIds);
       logger.success(`✅ Estudiante ${userId} inscrito en ${careerEnrollments.length} carreras`);
 
-      // 3. Inscribir en materias (máximo 2 por carrera)
+      // 4. Inscribir en materias (1 por carrera = total 7 materias)
       const subjectSummary = await this.enrollUserInCareerSubjects(userId, careerIds);
 
-      // 4. Resumen final
+      // 5. Resumen final
       const result = {
         success: true,
         message: 'Inscripción completada exitosamente',
@@ -245,7 +236,7 @@ export class EnrollmentService {
       logger.success(
         `✅ ¡Configuración completada para estudiante ${userId}!\n` +
         `   📚 ${result.careers} carreras\n` +
-        `   📖 ${result.subjects} materias (máx. ${STUDENT_CONFIG.MAX_SUBJECTS_PER_CAREER} por carrera)`
+        `   📖 ${result.subjects} materias (1 por carrera)`
       );
 
       return result;
@@ -288,7 +279,7 @@ export class EnrollmentService {
   }
 
   /**
-   * Asigna profesor a materias
+   * 🆕 Asigna profesor a materias (máximo 7)
    * @param {number} teacherId - ID del profesor
    * @param {Array} subjects - Materias a asignar
    * @returns {Object} Resultado con materias asignadas
@@ -297,7 +288,15 @@ export class EnrollmentService {
     let assignedCount = 0;
     const assignedSubjects = [];
 
-    for (const subject of subjects) {
+    // Limitar a máximo 7 materias
+    const subjectsToAssign = subjects.slice(0, ENROLLMENT_LIMITS.MAX_SUBJECTS_TEACHER);
+
+    logger.info(
+      `Asignando profesor ${teacherId} a ${subjectsToAssign.length} materias ` +
+      `(límite: ${ENROLLMENT_LIMITS.MAX_SUBJECTS_TEACHER})`
+    );
+
+    for (const subject of subjectsToAssign) {
       try {
         logger.debug(`Asignando profesor ${teacherId} a materia ${subject.id}: ${subject.nombre}`);
         
@@ -321,77 +320,7 @@ export class EnrollmentService {
   }
 
   /**
-   * Crear evaluaciones para las materias asignadas a un profesor
-   * @param {number} teacherId - ID del profesor
-   * @param {Array} subjects - Materias asignadas
-   * @returns {Array} Evaluaciones creadas
-   */
-  static async createEvaluationsForTeacher(teacherId, subjects) {
-    if (!TEACHER_CONFIG.AUTO_CREATE_EVALUATIONS) {
-      logger.info('Creación automática de evaluaciones deshabilitada');
-      return [];
-    }
-
-    try {
-      logger.info(`📝 Creando evaluaciones para profesor ${teacherId}...`);
-
-      // Obtener plantilla por defecto
-      const template = await EvaluationTemplateModel.findDefault();
-      
-      if (!template) {
-        logger.warn('No se encontró plantilla de evaluación por defecto');
-        return [];
-      }
-
-      // Aqui ya no se calcula el periodo, se usa el periodo actual
-      const periodo = CURRENT_PERIOD;
-
-      // Fechas de la evaluación
-      const fechaInicio = new Date();
-      const fechaCierre = new Date();
-      fechaCierre.setMonth(fechaCierre.getMonth() + TEACHER_CONFIG.EVALUATION_DURATION_MONTHS);
-
-      const createdEvaluations = [];
-
-      for (const subject of subjects) {
-        try {
-          // Verificar si ya existe una evaluación
-          const exists = await EvaluationModel.exists(subject.id, teacherId, periodo);
-          
-          if (exists) {
-            logger.warn(`Ya existe evaluación para materia ${subject.nombre} en periodo ${periodo}`);
-            continue;
-          }
-
-          // Crear evaluación
-          const evaluation = await EvaluationModel.create({
-            templateId: template.id,
-            subjectId: subject.id,
-            teacherId: teacherId,
-            periodo: periodo,
-            fechaInicio: fechaInicio,
-            fechaCierre: fechaCierre,
-            esObligatoria: true,
-            activo: true
-          });
-
-          createdEvaluations.push(evaluation);
-          logger.success(`Evaluación creada para ${subject.nombre} (Periodo: ${periodo})`);
-        } catch (error) {
-          logger.error(`Error creando evaluación para materia ${subject.nombre}`, error);
-        }
-      }
-
-      logger.success(`${createdEvaluations.length} evaluaciones creadas para profesor ${teacherId}`);
-      return createdEvaluations;
-    } catch (error) {
-      logger.error('Error creando evaluaciones para profesor', error);
-      return [];
-    }
-  }
-
-  /**
-   * Configuración completa de asignación para profesor
+   * 🆕 Configuración completa de asignación para profesor (SIN crear evaluaciones)
    * @param {number} teacherId - ID del profesor
    * @returns {Object} Resultado de la configuración
    */
@@ -405,53 +334,49 @@ export class EnrollmentService {
       if (subjectsToAssign.length === 0) {
         logger.warn('No hay materias disponibles para asignar al profesor');
         return {
+          success: false,
+          message: 'No hay materias disponibles sin profesor asignado',
           assignedSubjects: 0,
-          createdEvaluations: 0,
-          subjects: [],
-          evaluations: []
+          subjects: []
         };
       }
 
-      // 2. Asignar profesor a las materias
+      // 2. Asignar profesor a las materias (máximo 7)
       const { assignedCount, assignedSubjects } = await this.assignTeacherToSubjects(
         teacherId,
         subjectsToAssign
       );
 
+      if (assignedCount === 0) {
+        return {
+          success: false,
+          message: 'No se pudieron asignar materias al profesor',
+          assignedSubjects: 0,
+          subjects: []
+        };
+      }
+
       logger.success(
         `Profesor ${teacherId} asignado a ${assignedCount} materias`
       );
 
-      // 3. Crear evaluaciones para esas materias
-      const createdEvaluations = await this.createEvaluationsForTeacher(
-        teacherId,
-        assignedSubjects
-      );
-
-      // 4. Resumen final
+      // 3. Resumen final (SIN evaluaciones)
       const result = {
+        success: true,
+        message: 'Asignación completada exitosamente',
         assignedSubjects: assignedCount,
-        createdEvaluations: createdEvaluations.length,
         subjects: assignedSubjects.map(s => ({
           id: s.id,
           nombre: s.nombre,
           codigo: s.codigo,
           semestre: s.semestre,
           studentCount: s.studentCount
-        })),
-        evaluations: createdEvaluations.map(e => ({
-          id: e.id,
-          subjectId: e.subjectId,
-          periodo: e.periodo,
-          fechaInicio: e.fechaInicio,
-          fechaCierre: e.fechaCierre
         }))
       };
 
       logger.success(
         `✅ Configuración completa para profesor ${teacherId}:\n` +
-        `   - ${result.assignedSubjects} materias asignadas\n` +
-        `   - ${result.createdEvaluations} evaluaciones creadas`
+        `   - ${result.assignedSubjects} materias asignadas (máx: ${ENROLLMENT_LIMITS.MAX_SUBJECTS_TEACHER})`
       );
 
       return result;

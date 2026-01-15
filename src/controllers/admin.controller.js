@@ -8,9 +8,8 @@ export class AdminController {
   // ==========================================
 
   /**
-   * Sincronizar estudiantes
    * POST /api/admin/sync/students
-   * Body: { force?: boolean }
+   * Sincronizar estudiantes (inscribir en carreras y materias)
    */
   static async syncStudents(req, res) {
     try {
@@ -22,11 +21,29 @@ export class AdminController {
       return successResponse(
         res,
         resultado,
-        `Sincronización completada: ${resultado.exitosos} estudiantes procesados`,
+        'Sincronización de estudiantes completada',
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error en sincronización de estudiantes:', error);
+      console.error('Error en syncStudents:', error);
+      
+      // Manejo de errores específicos de validación
+      if (error.message.includes('No hay estudiantes')) {
+        return errorResponse(
+          res,
+          error.message,
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      if (error.message.includes('No hay carreras')) {
+        return errorResponse(
+          res,
+          error.message,
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
       return errorResponse(
         res,
         'Error al sincronizar estudiantes',
@@ -36,9 +53,8 @@ export class AdminController {
   }
 
   /**
-   * Sincronizar profesores
    * POST /api/admin/sync/teachers
-   * Body: { force?: boolean }
+   * Sincronizar profesores (asignar a materias)
    */
   static async syncTeachers(req, res) {
     try {
@@ -50,11 +66,29 @@ export class AdminController {
       return successResponse(
         res,
         resultado,
-        `Sincronización completada: ${resultado.exitosos} profesores procesados`,
+        'Sincronización de profesores completada',
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error en sincronización de profesores:', error);
+      console.error('Error en syncTeachers:', error);
+
+      // Manejo de errores específicos de validación
+      if (error.message.includes('No hay profesores')) {
+        return errorResponse(
+          res,
+          error.message,
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      if (error.message.includes('No hay materias disponibles')) {
+        return errorResponse(
+          res,
+          error.message,
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
       return errorResponse(
         res,
         'Error al sincronizar profesores',
@@ -64,109 +98,31 @@ export class AdminController {
   }
 
   /**
-   * Obtener historial de sincronizaciones
-   * GET /api/admin/sync/logs?tipo=students&periodo=2025-1&limit=50
-   */
-  static async getSyncLogs(req, res) {
-    try {
-      const { tipo, periodo, limit } = req.query;
-
-      const logs = await AdminService.getSyncLogs({
-        tipo,
-        periodo,
-        adminId: null,
-        limit: limit ? parseInt(limit) : 50
-      });
-
-      return successResponse(
-        res,
-        logs,
-        'Historial de sincronizaciones obtenido',
-        HTTP_STATUS.OK
-      );
-    } catch (error) {
-      console.error('Error obteniendo logs:', error);
-      return errorResponse(
-        res,
-        'Error al obtener historial',
-        HTTP_STATUS.INTERNAL_ERROR
-      );
-    }
-  }
-
-  /**
-   * Obtener última sincronización por tipo
-   * GET /api/admin/sync/last/:tipo?periodo=2025-1
-   */
-  static async getLastSync(req, res) {
-    try {
-      const { tipo } = req.params;
-      const { periodo } = req.query;
-
-      if (!['students', 'teachers', 'evaluations'].includes(tipo)) {
-        return errorResponse(
-          res,
-          'Tipo de sincronización inválido',
-          HTTP_STATUS.BAD_REQUEST
-        );
-      }
-
-      const log = await AdminService.getLastSyncLog(tipo, periodo);
-
-      if (!log) {
-        return successResponse(
-          res,
-          null,
-          'No se encontró sincronización previa',
-          HTTP_STATUS.OK
-        );
-      }
-
-      return successResponse(
-        res,
-        log,
-        'Última sincronización obtenida',
-        HTTP_STATUS.OK
-      );
-    } catch (error) {
-      console.error('Error obteniendo última sincronización:', error);
-      return errorResponse(
-        res,
-        'Error al obtener sincronización',
-        HTTP_STATUS.INTERNAL_ERROR
-      );
-    }
-  }
-
-  // ==========================================
-  // EVALUACIONES
-  // ==========================================
-
-  /**
-   * Generar evaluaciones masivas
    * POST /api/admin/evaluations/generate
-   * Body: { periodo, fechaInicio, fechaCierre, templateId? }
+   * Generar evaluaciones masivas para un periodo
    */
   static async generateEvaluations(req, res) {
     try {
       const adminId = req.user.id;
       const { periodo, fechaInicio, fechaCierre, templateId } = req.body;
 
+      // Validaciones básicas
       if (!periodo || !fechaInicio || !fechaCierre) {
         return errorResponse(
           res,
-          'Faltan campos obligatorios: periodo, fechaInicio, fechaCierre',
+          'Periodo, fechaInicio y fechaCierre son requeridos',
           HTTP_STATUS.BAD_REQUEST
         );
       }
 
+      // Validar fechas
       const inicio = new Date(fechaInicio);
       const cierre = new Date(fechaCierre);
 
       if (isNaN(inicio.getTime()) || isNaN(cierre.getTime())) {
         return errorResponse(
           res,
-          'Formato de fecha inválido',
+          'Fechas inválidas',
           HTTP_STATUS.BAD_REQUEST
         );
       }
@@ -174,7 +130,7 @@ export class AdminController {
       if (cierre <= inicio) {
         return errorResponse(
           res,
-          'La fecha de cierre debe ser posterior a la de inicio',
+          'La fecha de cierre debe ser posterior a la fecha de inicio',
           HTTP_STATUS.BAD_REQUEST
         );
       }
@@ -183,23 +139,48 @@ export class AdminController {
         periodo,
         fechaInicio,
         fechaCierre,
-        templateId: templateId ? parseInt(templateId) : null
+        templateId
       });
 
       return successResponse(
         res,
         resultado,
-        `Evaluaciones generadas: ${resultado.creadas} creadas, ${resultado.omitidas} omitidas`,
-        HTTP_STATUS.CREATED
+        'Generación de evaluaciones completada',
+        HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error generando evaluaciones:', error);
+      console.error('Error en generateEvaluations:', error);
+
+      // Manejo de errores específicos de validación
+      if (error.message.includes('No hay estudiantes')) {
+        return errorResponse(
+          res,
+          error.message,
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      if (error.message.includes('No hay profesores')) {
+        return errorResponse(
+          res,
+          error.message,
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      if (error.message.includes('No hay materias')) {
+        return errorResponse(
+          res,
+          error.message,
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
 
       if (error.message.includes('Plantilla')) {
         return errorResponse(
           res,
           error.message,
-          HTTP_STATUS.NOT_FOUND
+          HTTP_STATUS.BAD_REQUEST
         );
       }
 
@@ -211,66 +192,90 @@ export class AdminController {
     }
   }
 
-  // ==========================================
-  // DASHBOARD Y REPORTES
-  // ==========================================
+  /**
+   * GET /api/admin/sync/logs
+   * Obtener historial de sincronizaciones
+   */
+  static async getSyncLogs(req, res) {
+    try {
+      const { tipo, periodo, limit } = req.query;
+      const adminId = req.user.id;
+
+      const logs = await AdminService.getSyncLogs({
+        tipo,
+        periodo,
+        adminId,
+        limit: limit ? parseInt(limit) : 50
+      });
+
+      return successResponse(
+        res,
+        logs,
+        'Logs de sincronización obtenidos',
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      console.error('Error en getSyncLogs:', error);
+      return errorResponse(
+        res,
+        'Error al obtener logs de sincronización',
+        HTTP_STATUS.INTERNAL_ERROR
+      );
+    }
+  }
 
   /**
-   * Obtener dashboard con estadísticas globales
-   * GET /api/admin/dashboard?periodo=2025-1
+   * GET /api/admin/sync/last/:tipo
+   * Obtener última sincronización por tipo
    */
-  static async getDashboard(req, res) {
+  static async getLastSync(req, res) {
     try {
+      const { tipo } = req.params;
       const { periodo } = req.query;
 
-      const dashboard = await AdminService.getDashboard(periodo);
+      // Validar tipo
+      if (!['students', 'teachers', 'evaluations'].includes(tipo)) {
+        return errorResponse(
+          res,
+          'Tipo de sincronización inválido. Debe ser: students, teachers o evaluations',
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      const lastSync = await AdminService.getLastSyncLog(tipo, periodo);
+
+      if (!lastSync) {
+        return successResponse(
+          res,
+          null,
+          'No se encontraron sincronizaciones previas',
+          HTTP_STATUS.OK
+        );
+      }
 
       return successResponse(
         res,
-        dashboard,
-        'Dashboard obtenido exitosamente',
+        lastSync,
+        'Última sincronización obtenida',
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error obteniendo dashboard:', error);
+      console.error('Error en getLastSync:', error);
       return errorResponse(
         res,
-        'Error al obtener dashboard',
+        'Error al obtener última sincronización',
         HTTP_STATUS.INTERNAL_ERROR
       );
     }
   }
 
-  /**
-   * Obtener usuarios pendientes de primer login
-   * GET /api/admin/users/pending-login
-   */
-  static async getPendingFirstLogin(req, res) {
-    try {
-      const users = await AdminService.getPendingFirstLogin();
-
-      return successResponse(
-        res,
-        {
-          total: users.length,
-          users
-        },
-        'Usuarios pendientes obtenidos',
-        HTTP_STATUS.OK
-      );
-    } catch (error) {
-      console.error('Error obteniendo usuarios pendientes:', error);
-      return errorResponse(
-        res,
-        'Error al obtener usuarios pendientes',
-        HTTP_STATUS.INTERNAL_ERROR
-      );
-    }
-  }
+  // ==========================================
+  // EVALUACIONES
+  // ==========================================
 
   /**
+   * GET /api/admin/evaluations/stats
    * Obtener estadísticas de evaluaciones
-   * GET /api/admin/evaluations/stats?periodo=2025-1
    */
   static async getEvaluationStats(req, res) {
     try {
@@ -285,26 +290,80 @@ export class AdminController {
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error obteniendo estadísticas:', error);
+      console.error('Error en getEvaluationStats:', error);
       return errorResponse(
         res,
-        'Error al obtener estadísticas',
+        'Error al obtener estadísticas de evaluaciones',
         HTTP_STATUS.INTERNAL_ERROR
       );
     }
   }
 
   // ==========================================
-  // 🆕 ANÁLISIS DE DOCENTES
+  // DASHBOARD Y REPORTES
   // ==========================================
 
   /**
-   * Obtener análisis detallado de todos los docentes
-   * GET /api/admin/analysis/teachers?periodo=2025-1&career=ING-SIS&sortBy=name
+   * GET /api/admin/dashboard
+   * Obtener dashboard con estadísticas globales
+   */
+  static async getDashboard(req, res) {
+    try {
+      const { periodo } = req.query;
+
+      const dashboard = await AdminService.getDashboard(periodo);
+
+      return successResponse(
+        res,
+        dashboard,
+        'Dashboard obtenido exitosamente',
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      console.error('Error en getDashboard:', error);
+      return errorResponse(
+        res,
+        'Error al obtener dashboard',
+        HTTP_STATUS.INTERNAL_ERROR
+      );
+    }
+  }
+
+  /**
+   * GET /api/admin/users/pending-login
+   * Obtener usuarios que no han iniciado sesión
+   */
+  static async getPendingFirstLogin(req, res) {
+    try {
+      const users = await AdminService.getPendingFirstLogin();
+
+      return successResponse(
+        res,
+        users,
+        'Usuarios pendientes obtenidos',
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      console.error('Error en getPendingFirstLogin:', error);
+      return errorResponse(
+        res,
+        'Error al obtener usuarios pendientes',
+        HTTP_STATUS.INTERNAL_ERROR
+      );
+    }
+  }
+
+  // ==========================================
+  // ANÁLISIS DE DOCENTES
+  // ==========================================
+
+  /**
+   * GET /api/admin/analysis/teachers
+   * Obtener análisis completo de todos los docentes
    */
   static async getTeachersAnalysis(req, res) {
     try {
-      const { periodo, career, sortBy = 'name' } = req.query;
+      const { periodo, career, sortBy } = req.query;
 
       const analysis = await AdminService.getTeachersAnalysis({
         periodo,
@@ -315,11 +374,11 @@ export class AdminController {
       return successResponse(
         res,
         analysis,
-        'Análisis de docentes obtenido exitosamente',
+        'Análisis de docentes obtenido',
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error obteniendo análisis de docentes:', error);
+      console.error('Error en getTeachersAnalysis:', error);
       return errorResponse(
         res,
         'Error al obtener análisis de docentes',
@@ -329,8 +388,8 @@ export class AdminController {
   }
 
   /**
+   * GET /api/admin/analysis/teachers/:teacherId
    * Obtener análisis detallado de un docente específico
-   * GET /api/admin/analysis/teachers/:teacherId?periodo=2025-1
    */
   static async getTeacherAnalysis(req, res) {
     try {
@@ -345,7 +404,7 @@ export class AdminController {
       if (!analysis) {
         return errorResponse(
           res,
-          'Docente no encontrado o sin datos',
+          'Docente no encontrado o no tiene rol de profesor',
           HTTP_STATUS.NOT_FOUND
         );
       }
@@ -353,11 +412,11 @@ export class AdminController {
       return successResponse(
         res,
         analysis,
-        'Análisis del docente obtenido exitosamente',
+        'Análisis del docente obtenido',
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error obteniendo análisis del docente:', error);
+      console.error('Error en getTeacherAnalysis:', error);
       return errorResponse(
         res,
         'Error al obtener análisis del docente',
@@ -367,8 +426,8 @@ export class AdminController {
   }
 
   /**
+   * GET /api/admin/analysis/stats
    * Obtener estadísticas globales para análisis
-   * GET /api/admin/analysis/stats?periodo=2025-1&career=ING-SIS
    */
   static async getAnalysisStats(req, res) {
     try {
@@ -382,18 +441,16 @@ export class AdminController {
       return successResponse(
         res,
         stats,
-        'Estadísticas globales obtenidas',
+        'Estadísticas de análisis obtenidas',
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error obteniendo estadísticas:', error);
+      console.error('Error en getAnalysisStats:', error);
       return errorResponse(
         res,
-        'Error al obtener estadísticas',
+        'Error al obtener estadísticas de análisis',
         HTTP_STATUS.INTERNAL_ERROR
       );
     }
   }
 }
-
-export default AdminController;
