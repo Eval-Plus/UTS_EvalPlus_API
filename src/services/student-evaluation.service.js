@@ -7,6 +7,7 @@ import { StudentEvaluationModel } from '../models/student-evaluation.model.js';
 import { ResponseModel } from '../models/response.model.js';
 import { EvaluationModel } from '../models/evaluation.model.js';
 import { QuestionModel } from '../models/question.model.js';
+import { SentimentAnalysisService } from './ai/sentiment-analysis.service.js';
 import { createLogger } from '../utils/logger.js';
 import { SENTIMENT_TYPES } from '../config/constants.js';
 
@@ -57,6 +58,7 @@ export class StudentEvaluationService {
 
   /**
    * Guardar respuestas de una evaluación
+   * 🆕 ACTUALIZADO: Ahora incluye análisis de sentimiento asíncrono
    * @param {number} studentEvaluationId - ID de la evaluación del estudiante
    * @param {Array} responses - Array de respuestas
    * @param {string} comentario - Comentario opcional
@@ -130,6 +132,18 @@ export class StudentEvaluationService {
 
       logger.success(`Evaluación ${studentEvaluationId} completada con ${savedResponses.length} respuestas`);
 
+      // 🆕 ANÁLISIS DE SENTIMIENTO ASÍNCRONO
+      if (comentario && comentario.trim().length > 0) {
+        logger.info('🤖 Iniciando análisis de sentimiento en segundo plano...');
+        
+        // Ejecutar análisis de forma asíncrona (no bloqueante)
+        this.analyzeSentimentAsync(studentEvaluationId, comentario)
+          .catch(error => {
+            // Solo logueamos el error, no afecta la respuesta al usuario
+            logger.error('Error en análisis de sentimiento asíncrono', error);
+          });
+      }
+
       return {
         studentEvaluation: completedEvaluation,
         responses: savedResponses,
@@ -138,6 +152,33 @@ export class StudentEvaluationService {
     } catch (error) {
       logger.error('Error guardando respuestas', error);
       throw error;
+    }
+  }
+
+  /**
+   * 🆕 Analiza el sentimiento de un comentario de forma asíncrona
+   * @param {number} studentEvaluationId - ID de la evaluación
+   * @param {string} comment - Comentario a analizar
+   * @returns {Promise<void>}
+   */
+  static async analyzeSentimentAsync(studentEvaluationId, comment) {
+    try {
+      logger.info(`🔍 Análisis asíncrono iniciado para evaluación ${studentEvaluationId}`);
+      
+      const result = await SentimentAnalysisService.analyzeAndUpdate(
+        studentEvaluationId,
+        comment
+      );
+
+      logger.success(
+        `✅ Análisis completado: ${result.sentiment} ` +
+        `(${(result.sentimentScore * 100).toFixed(1)}% confianza)`
+      );
+
+      return result;
+    } catch (error) {
+      logger.error('Error en análisis de sentimiento asíncrono', error);
+      // No lanzamos el error para que no afecte el flujo principal
     }
   }
 
@@ -472,6 +513,36 @@ export class StudentEvaluationService {
       return comments;
     } catch (error) {
       logger.error('Error obteniendo comentarios por sentimiento', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🆕 Re-analizar comentarios pendientes (útil para análisis en lote)
+   * @param {number} evaluationId - ID de la evaluación (opcional)
+   * @returns {Promise<Object>} Resultado del análisis en lote
+   */
+  static async reanalyzeComments(evaluationId = null) {
+    try {
+      logger.info('🔄 Iniciando re-análisis de comentarios...');
+
+      const unanalyzed = await StudentEvaluationModel.findUnanalyzedComments(evaluationId);
+
+      if (unanalyzed.length === 0) {
+        logger.info('✅ No hay comentarios pendientes de análisis');
+        return {
+          total: 0,
+          success: 0,
+          failed: 0,
+          results: []
+        };
+      }
+
+      const result = await SentimentAnalysisService.analyzeBatch(unanalyzed);
+      
+      return result;
+    } catch (error) {
+      logger.error('Error en re-análisis de comentarios', error);
       throw error;
     }
   }

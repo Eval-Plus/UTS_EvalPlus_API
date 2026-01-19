@@ -12,6 +12,7 @@ import questionRoutes from './question.routes.js';
 import evaluationRoutes from './evaluation.routes.js';
 import studentevaluationRoutes from './student-evaluation.routes.js';
 import adminRoutes from './admin.routes.js';
+import sentimentRoutes from './sentiment.routes.js';
 
 const router = Router();
 
@@ -26,6 +27,7 @@ router.use('/questions', questionRoutes);
 router.use('/evaluations', evaluationRoutes);
 router.use('/student-evaluations', studentevaluationRoutes);
 router.use('/admin', adminRoutes);
+router.use('/sentiment', sentimentRoutes);
 
 /**
  * Ruta de health check

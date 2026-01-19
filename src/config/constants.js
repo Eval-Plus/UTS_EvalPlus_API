@@ -30,6 +30,51 @@ export const SENTIMENT_THRESHOLDS = {
   LOW_CONFIDENCE: 0.4        // Confianza baja
 };
 
+// 🆕 Configuración del modelo de IA
+export const AI_CONFIG = {
+  // Modelo de análisis de sentimiento en español
+  MODEL_NAME: 'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
+  // Modelo alternativo mejor para español (se puede cambiar)
+  MODEL_NAME_ES: 'Xenova/bert-base-multilingual-uncased-sentiment',
+  
+  // Configuración de cache
+  CACHE_DIR: './cache/transformers',
+  
+  // Timeouts
+  ANALYSIS_TIMEOUT: 10000, // 10 segundos
+  
+  // Configuración de procesamiento
+  MAX_COMMENT_LENGTH: 512, // Máximo de tokens
+  MIN_COMMENT_LENGTH: 5,   // Mínimo de caracteres para analizar
+  
+  // Mapeo de labels del modelo a nuestros tipos
+  LABEL_MAPPING: {
+    'POSITIVE': SENTIMENT_TYPES.POSITIVE,
+    'NEGATIVE': SENTIMENT_TYPES.NEGATIVE,
+    'NEUTRAL': SENTIMENT_TYPES.NEUTRAL,
+    'LABEL_0': SENTIMENT_TYPES.NEGATIVE,  // Para algunos modelos
+    'LABEL_1': SENTIMENT_TYPES.NEUTRAL,
+    'LABEL_2': SENTIMENT_TYPES.POSITIVE,
+    '1 star': SENTIMENT_TYPES.NEGATIVE,
+    '2 stars': SENTIMENT_TYPES.NEGATIVE,
+    '3 stars': SENTIMENT_TYPES.NEUTRAL,
+    '4 stars': SENTIMENT_TYPES.POSITIVE,
+    '5 stars': SENTIMENT_TYPES.POSITIVE,
+  },
+  
+  // Palabras clave para detección rápida (fallback)
+  POSITIVE_KEYWORDS: [
+    'excelente', 'muy bueno', 'genial', 'increíble', 'fantástico',
+    'dedicado', 'claro', 'comprensible', 'paciente', 'atento',
+    'recomiendo', 'mejor profesor', 'aprendí mucho'
+  ],
+  NEGATIVE_KEYWORDS: [
+    'malo', 'pésimo', 'terrible', 'horrible', 'confuso',
+    'no explica', 'difícil', 'aburrido', 'no entiende',
+    'no recomiendo', 'peor profesor'
+  ],
+};
+
 // Configuración de asignación automática
 export const AUTO_ASSIGNMENT = {
   CAREERS_PER_STUDENT: 2,
@@ -95,7 +140,10 @@ export const MESSAGES = {
     BATCH_ANALYZED: 'Análisis de sentimientos en lote completado',
     NO_COMMENT: 'No hay comentario para analizar',
     ALREADY_ANALYZED: 'Este comentario ya fue analizado',
-    ANALYSIS_FAILED: 'Error en el análisis de sentimiento'
+    ANALYSIS_FAILED: 'Error en el análisis de sentimiento',
+    ANALYSIS_STARTED: 'Análisis de sentimiento iniciado en segundo plano',
+    MODEL_LOADING: 'Cargando modelo de IA...',
+    MODEL_READY: 'Modelo de IA listo'
   },
 
   // Permisos
@@ -145,6 +193,7 @@ export default {
   ADMIN_EMAIL_KEYWORDS,
   SENTIMENT_TYPES,
   SENTIMENT_THRESHOLDS,
+  AI_CONFIG,
   AUTO_ASSIGNMENT,
   PROFILE_STATUS,
   MESSAGES,
