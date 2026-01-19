@@ -13,7 +13,22 @@ export const ROLES = {
 export const TEACHER_EMAIL_KEYWORDS = ['profesor', 'teacher', 'docente'];
 
 // Palabras clave para detectar administradores en emails
-export const ADMIN_EMAIL_KEYWORDS = ['admin', 'administrador', 'administrator', 'director', 'coordinador']
+export const ADMIN_EMAIL_KEYWORDS = ['admin', 'administrador', 'administrator', 'director', 'coordinador'];
+
+// 🆕 Tipos de sentimiento
+export const SENTIMENT_TYPES = {
+  POSITIVE: 'positive',
+  NEGATIVE: 'negative',
+  NEUTRAL: 'neutral',
+  MIXED: 'mixed'
+};
+
+// 🆕 Umbrales de puntuación de sentimiento
+export const SENTIMENT_THRESHOLDS = {
+  HIGH_CONFIDENCE: 0.8,      // Confianza alta
+  MEDIUM_CONFIDENCE: 0.6,    // Confianza media
+  LOW_CONFIDENCE: 0.4        // Confianza baja
+};
 
 // Configuración de asignación automática
 export const AUTO_ASSIGNMENT = {
@@ -73,6 +88,16 @@ export const MESSAGES = {
     NOT_ENROLLED: 'El estudiante no está inscrito'
   },
 
+  // 🆕 Sentimientos
+  SENTIMENT: {
+    ANALYZED: 'Análisis de sentimiento completado',
+    UPDATED: 'Sentimiento actualizado exitosamente',
+    BATCH_ANALYZED: 'Análisis de sentimientos en lote completado',
+    NO_COMMENT: 'No hay comentario para analizar',
+    ALREADY_ANALYZED: 'Este comentario ya fue analizado',
+    ANALYSIS_FAILED: 'Error en el análisis de sentimiento'
+  },
+
   // Permisos
   PERMISSION: {
     DENIED: 'No tienes permisos para este recurso',
@@ -118,6 +143,8 @@ export default {
   ROLES,
   TEACHER_EMAIL_KEYWORDS,
   ADMIN_EMAIL_KEYWORDS,
+  SENTIMENT_TYPES,
+  SENTIMENT_THRESHOLDS,
   AUTO_ASSIGNMENT,
   PROFILE_STATUS,
   MESSAGES,

@@ -1,94 +1,63 @@
 import { StudentEvaluationService } from '../services/student-evaluation.service.js';
 import { ResponseModel } from '../models/response.model.js';
 import { successResponse, errorResponse } from '../utils/response.js';
-import { HTTP_STATUS } from '../config/constants.js';
+import { MESSAGES, HTTP_STATUS } from '../config/constants.js';
+import { createLogger } from '../utils/logger.js';
+
+const logger = createLogger('StudentEvaluationController');
 
 export class StudentEvaluationController {
   /**
-   * Iniciar una evaluación para un estudiante
+   * Iniciar una evaluación
    * POST /api/student-evaluations/start
-   * Body: { evaluationId }
    */
   static async startEvaluation(req, res) {
     try {
-      const studentId = req.user.id;
       const { evaluationId } = req.body;
+      const studentId = req.user.id;
 
       if (!evaluationId) {
-        return errorResponse(
-          res,
-          'El ID de la evaluación es requerido',
-          HTTP_STATUS.BAD_REQUEST
-        );
+        return errorResponse(res, 'Se requiere el ID de la evaluación', HTTP_STATUS.BAD_REQUEST);
       }
 
       const studentEvaluation = await StudentEvaluationService.startEvaluation(
-        evaluationId,
+        parseInt(evaluationId),
         studentId
       );
 
       return successResponse(
         res,
         studentEvaluation,
-        'Evaluación iniciada exitosamente',
+        'Evaluación iniciada correctamente',
         HTTP_STATUS.CREATED
       );
     } catch (error) {
-      console.error('Error iniciando evaluación:', error);
-
-      if (error.message.includes('no puede responder')) {
-        return errorResponse(
-          res,
-          error.message,
-          HTTP_STATUS.FORBIDDEN
-        );
-      }
-
-      return errorResponse(
-        res,
-        'Error al iniciar evaluación',
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error('Error iniciando evaluación', error);
+      return errorResponse(res, error.message, HTTP_STATUS.BAD_REQUEST);
     }
   }
 
   /**
-   * Enviar respuestas completas de una evaluación
+   * Enviar respuestas completas
    * POST /api/student-evaluations/:id/submit
-   * Body: { responses: [...], comentario: "..." }
    */
   static async submitResponses(req, res) {
     try {
       const { id } = req.params;
-      const studentId = req.user.id;
       const { responses, comentario } = req.body;
+      const studentId = req.user.id;
 
       if (!responses || !Array.isArray(responses)) {
-        return errorResponse(
-          res,
-          'Las respuestas deben ser un array',
-          HTTP_STATUS.BAD_REQUEST
-        );
+        return errorResponse(res, 'Se requiere un array de respuestas', HTTP_STATUS.BAD_REQUEST);
       }
 
-      if (responses.length === 0) {
+      // Verificar que sea el estudiante correcto
+      const studentEvaluation = await StudentEvaluationService.getStudentEvaluationById(parseInt(id));
+      
+      if (studentEvaluation.studentId !== studentId) {
         return errorResponse(
           res,
-          'Debe proporcionar al menos una respuesta',
-          HTTP_STATUS.BAD_REQUEST
-        );
-      }
-
-      // Verificar que la evaluación pertenece al estudiante
-      const canContinue = await StudentEvaluationService.canContinueEvaluation(
-        parseInt(id),
-        studentId
-      );
-
-      if (!canContinue.canContinue) {
-        return errorResponse(
-          res,
-          canContinue.reason,
+          'No tienes permisos para enviar esta evaluación',
           HTTP_STATUS.FORBIDDEN
         );
       }
@@ -106,61 +75,32 @@ export class StudentEvaluationController {
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error enviando respuestas:', error);
-
-      if (error.message.includes('Faltan responder')) {
-        return errorResponse(
-          res,
-          error.message,
-          HTTP_STATUS.BAD_REQUEST
-        );
-      }
-
-      if (error.message.includes('ya fue completada')) {
-        return errorResponse(
-          res,
-          error.message,
-          HTTP_STATUS.CONFLICT
-        );
-      }
-
-      return errorResponse(
-        res,
-        'Error al guardar respuestas',
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error('Error enviando respuestas', error);
+      return errorResponse(res, error.message, HTTP_STATUS.BAD_REQUEST);
     }
   }
 
   /**
-   * Guardar respuestas parciales (progreso)
+   * Guardar respuestas parciales
    * PUT /api/student-evaluations/:id/responses
-   * Body: { responses: [...] }
    */
   static async savePartialResponses(req, res) {
     try {
       const { id } = req.params;
-      const studentId = req.user.id;
       const { responses } = req.body;
+      const studentId = req.user.id;
 
       if (!responses || !Array.isArray(responses)) {
-        return errorResponse(
-          res,
-          'Las respuestas deben ser un array',
-          HTTP_STATUS.BAD_REQUEST
-        );
+        return errorResponse(res, 'Se requiere un array de respuestas', HTTP_STATUS.BAD_REQUEST);
       }
 
-      // Verificar permisos
-      const canContinue = await StudentEvaluationService.canContinueEvaluation(
-        parseInt(id),
-        studentId
-      );
-
-      if (!canContinue.canContinue) {
+      // Verificar que sea el estudiante correcto
+      const studentEvaluation = await StudentEvaluationService.getStudentEvaluationById(parseInt(id));
+      
+      if (studentEvaluation.studentId !== studentId) {
         return errorResponse(
           res,
-          canContinue.reason,
+          'No tienes permisos para guardar esta evaluación',
           HTTP_STATUS.FORBIDDEN
         );
       }
@@ -177,79 +117,25 @@ export class StudentEvaluationController {
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error guardando progreso:', error);
-      return errorResponse(
-        res,
-        'Error al guardar progreso',
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error('Error guardando respuestas parciales', error);
+      return errorResponse(res, error.message, HTTP_STATUS.BAD_REQUEST);
     }
   }
 
   /**
-   * Obtener evaluación de estudiante por ID
-   * GET /api/student-evaluations/:id
-   */
-  static async getStudentEvaluationById(req, res) {
-    try {
-      const { id } = req.params;
-      const studentId = req.user.id;
-
-      const studentEvaluation = await StudentEvaluationService.getStudentEvaluationById(
-        parseInt(id)
-      );
-
-      // Verificar que pertenece al estudiante (a menos que sea admin/teacher)
-      if (studentEvaluation.studentId !== studentId && !req.userRoles?.includes('ADMIN')) {
-        return errorResponse(
-          res,
-          'No tienes acceso a esta evaluación',
-          HTTP_STATUS.FORBIDDEN
-        );
-      }
-
-      return successResponse(
-        res,
-        studentEvaluation,
-        'Evaluación obtenida exitosamente',
-        HTTP_STATUS.OK
-      );
-    } catch (error) {
-      console.error('Error obteniendo evaluación:', error);
-
-      if (error.message === 'Evaluación de estudiante no encontrada') {
-        return errorResponse(
-          res,
-          error.message,
-          HTTP_STATUS.NOT_FOUND
-        );
-      }
-
-      return errorResponse(
-        res,
-        'Error al obtener evaluación',
-        HTTP_STATUS.INTERNAL_ERROR
-      );
-    }
-  }
-
-  /**
-   * Obtener mis evaluaciones (del estudiante autenticado)
-   * GET /api/student-evaluations/my?completada=true/false
+   * Obtener mis evaluaciones
+   * GET /api/student-evaluations/my
    */
   static async getMyEvaluations(req, res) {
     try {
       const studentId = req.user.id;
       const { completada } = req.query;
 
-      let completadaFilter = null;
-      if (completada === 'true') completadaFilter = true;
-      if (completada === 'false') completadaFilter = false;
+      const filter = completada !== undefined
+        ? completada === 'true'
+        : null;
 
-      const evaluations = await StudentEvaluationService.getStudentEvaluations(
-        studentId,
-        completadaFilter
-      );
+      const evaluations = await StudentEvaluationService.getStudentEvaluations(studentId, filter);
 
       return successResponse(
         res,
@@ -258,12 +144,8 @@ export class StudentEvaluationController {
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error obteniendo evaluaciones:', error);
-      return errorResponse(
-        res,
-        'Error al obtener evaluaciones',
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error('Error obteniendo evaluaciones', error);
+      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
     }
   }
 
@@ -288,26 +170,57 @@ export class StudentEvaluationController {
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error verificando continuidad:', error);
-      return errorResponse(
-        res,
-        'Error al verificar estado de evaluación',
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error('Error verificando evaluación', error);
+      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
     }
   }
 
   /**
-   * Obtener progreso de una evaluación (para profesores/admin)
+   * Obtener evaluación por ID
+   * GET /api/student-evaluations/:id
+   */
+  static async getStudentEvaluationById(req, res) {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+      const userRoles = req.userRoles || [];
+
+      const studentEvaluation = await StudentEvaluationService.getStudentEvaluationById(parseInt(id));
+
+      // Verificar permisos: solo el estudiante, el profesor o admin pueden ver
+      const isOwner = studentEvaluation.studentId === userId;
+      const isTeacher = studentEvaluation.evaluation.teacherId === userId;
+      const isAdmin = userRoles.includes('ADMIN');
+
+      if (!isOwner && !isTeacher && !isAdmin) {
+        return errorResponse(
+          res,
+          'No tienes permisos para ver esta evaluación',
+          HTTP_STATUS.FORBIDDEN
+        );
+      }
+
+      return successResponse(
+        res,
+        studentEvaluation,
+        'Evaluación obtenida exitosamente',
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      logger.error('Error obteniendo evaluación', error);
+      return errorResponse(res, error.message, HTTP_STATUS.NOT_FOUND);
+    }
+  }
+
+  /**
+   * Obtener progreso de una evaluación
    * GET /api/student-evaluations/evaluation/:evaluationId/progress
    */
   static async getEvaluationProgress(req, res) {
     try {
       const { evaluationId } = req.params;
 
-      const progress = await StudentEvaluationService.getEvaluationProgress(
-        parseInt(evaluationId)
-      );
+      const progress = await StudentEvaluationService.getEvaluationProgress(parseInt(evaluationId));
 
       return successResponse(
         res,
@@ -316,70 +229,42 @@ export class StudentEvaluationController {
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error obteniendo progreso:', error);
-
-      if (error.message === 'Evaluación no encontrada') {
-        return errorResponse(
-          res,
-          error.message,
-          HTTP_STATUS.NOT_FOUND
-        );
-      }
-
-      return errorResponse(
-        res,
-        'Error al obtener progreso',
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error('Error obteniendo progreso', error);
+      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
     }
   }
 
   /**
-   * Obtener comentarios anónimos (para profesores/admin)
+   * Obtener comentarios anónimos
    * GET /api/student-evaluations/evaluation/:evaluationId/comments
    */
   static async getAnonymousComments(req, res) {
     try {
       const { evaluationId } = req.params;
 
-      const result = await StudentEvaluationService.getAnonymousComments(
-        parseInt(evaluationId)
-      );
+      const comments = await StudentEvaluationService.getAnonymousComments(parseInt(evaluationId));
 
-      // Fix: Extraer el array de comentarios correctamente
-      // result ya contiene { comments: [], metadata: {}, pagination: {} }
       return successResponse(
         res,
-        {
-          comments: result.comments,     // Array de comentarios
-          total: result.metadata.total,  // Total desde metadata
-          metadata: result.metadata,     // Metadata completa (opt)
-          pagination: result.pagination  // Info de paginación (Opt)
-        },
+        comments,
         'Comentarios obtenidos exitosamente',
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error obteniendo comentarios:', error);
-      return errorResponse(
-        res,
-        'Error al obtener comentarios',
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error('Error obteniendo comentarios', error);
+      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
     }
   }
 
   /**
-   * Obtener estadísticas detalladas de una evaluación (para profesores/admin)
+   * Obtener estadísticas detalladas
    * GET /api/student-evaluations/evaluation/:evaluationId/statistics
    */
   static async getDetailedStatistics(req, res) {
     try {
       const { evaluationId } = req.params;
 
-      const statistics = await StudentEvaluationService.getDetailedStatistics(
-        parseInt(evaluationId)
-      );
+      const statistics = await StudentEvaluationService.getDetailedStatistics(parseInt(evaluationId));
 
       return successResponse(
         res,
@@ -388,24 +273,20 @@ export class StudentEvaluationController {
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error obteniendo estadísticas:', error);
-      return errorResponse(
-        res,
-        'Error al obtener estadísticas',
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error('Error obteniendo estadísticas', error);
+      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
     }
   }
 
   /**
-   * Obtener distribución de respuestas de una pregunta (para profesores/admin)
+   * Obtener distribución de respuestas de una pregunta
    * GET /api/student-evaluations/evaluation/:evaluationId/question/:questionId/distribution
    */
   static async getQuestionDistribution(req, res) {
     try {
       const { evaluationId, questionId } = req.params;
 
-      const distribution = await ResponseModel.getResponseDistribution(
+      const distribution = await ResponseModel.getQuestionDistribution(
         parseInt(evaluationId),
         parseInt(questionId)
       );
@@ -417,41 +298,147 @@ export class StudentEvaluationController {
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error obteniendo distribución:', error);
-      return errorResponse(
-        res,
-        'Error al obtener distribución',
-        HTTP_STATUS.INTERNAL_ERROR
-      );
+      logger.error('Error obteniendo distribución', error);
+      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
     }
   }
 
   /**
-   * Obtener respuestas de texto de una pregunta (para profesores/admin)
+   * Obtener respuestas de texto de una pregunta
    * GET /api/student-evaluations/evaluation/:evaluationId/question/:questionId/text-responses
    */
   static async getQuestionTextResponses(req, res) {
     try {
       const { evaluationId, questionId } = req.params;
 
-      const textResponses = await ResponseModel.getTextResponses(
+      const responses = await ResponseModel.getTextResponsesByQuestion(
         parseInt(evaluationId),
         parseInt(questionId)
       );
 
       return successResponse(
         res,
-        { responses: textResponses, total: textResponses.length },
+        responses,
         'Respuestas de texto obtenidas exitosamente',
         HTTP_STATUS.OK
       );
     } catch (error) {
-      console.error('Error obteniendo respuestas de texto:', error);
-      return errorResponse(
-        res,
-        'Error al obtener respuestas',
-        HTTP_STATUS.INTERNAL_ERROR
+      logger.error('Error obteniendo respuestas de texto', error);
+      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  // ==========================================
+  // 🆕 CONTROLADORES PARA ANÁLISIS DE SENTIMIENTO
+  // ==========================================
+
+  /**
+   * Actualizar sentimiento de un comentario
+   * PUT /api/student-evaluations/:id/sentiment
+   * Body: { sentiment: string, score?: number }
+   */
+  static async updateSentiment(req, res) {
+    try {
+      const { id } = req.params;
+      const { sentiment, score } = req.body;
+
+      if (!sentiment) {
+        return errorResponse(
+          res,
+          'Se requiere el tipo de sentimiento',
+          HTTP_STATUS.BAD_REQUEST
+        );
+      }
+
+      const updated = await StudentEvaluationService.updateSentiment(
+        parseInt(id),
+        sentiment,
+        score || null
       );
+
+      return successResponse(
+        res,
+        updated,
+        MESSAGES.SENTIMENT.UPDATED,
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      logger.error('Error actualizando sentimiento', error);
+      return errorResponse(res, error.message, HTTP_STATUS.BAD_REQUEST);
+    }
+  }
+
+  /**
+   * Obtener comentarios sin analizar
+   * GET /api/student-evaluations/unanalyzed
+   * Query: evaluationId (opcional)
+   */
+  static async getUnanalyzedComments(req, res) {
+    try {
+      const { evaluationId } = req.query;
+
+      const comments = await StudentEvaluationService.getUnanalyzedComments(
+        evaluationId ? parseInt(evaluationId) : null
+      );
+
+      return successResponse(
+        res,
+        comments,
+        `${comments.length} comentarios sin analizar`,
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      logger.error('Error obteniendo comentarios sin analizar', error);
+      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Obtener estadísticas de sentimientos
+   * GET /api/student-evaluations/evaluation/:evaluationId/sentiment-stats
+   */
+  static async getSentimentStatistics(req, res) {
+    try {
+      const { evaluationId } = req.params;
+
+      const stats = await StudentEvaluationService.getSentimentStatistics(
+        parseInt(evaluationId)
+      );
+
+      return successResponse(
+        res,
+        stats,
+        'Estadísticas de sentimientos obtenidas',
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      logger.error('Error obteniendo estadísticas de sentimientos', error);
+      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
+    }
+  }
+
+  /**
+   * Obtener comentarios por tipo de sentimiento
+   * GET /api/student-evaluations/evaluation/:evaluationId/sentiment/:type
+   */
+  static async getCommentsBySentiment(req, res) {
+    try {
+      const { evaluationId, type } = req.params;
+
+      const comments = await StudentEvaluationService.getCommentsBySentiment(
+        parseInt(evaluationId),
+        type
+      );
+
+      return successResponse(
+        res,
+        comments,
+        `${comments.length} comentarios ${type} encontrados`,
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      logger.error('Error obteniendo comentarios por sentimiento', error);
+      return errorResponse(res, error.message, HTTP_STATUS.BAD_REQUEST);
     }
   }
 }

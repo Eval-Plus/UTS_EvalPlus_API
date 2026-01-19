@@ -8,6 +8,7 @@ import { ResponseModel } from '../models/response.model.js';
 import { EvaluationModel } from '../models/evaluation.model.js';
 import { QuestionModel } from '../models/question.model.js';
 import { createLogger } from '../utils/logger.js';
+import { SENTIMENT_TYPES } from '../config/constants.js';
 
 const logger = createLogger('StudentEvaluationService');
 
@@ -22,7 +23,6 @@ export class StudentEvaluationService {
     try {
       logger.info(`Iniciando evaluación ${evaluationId} para estudiante ${studentId}`);
 
-      // Verificar que el estudiante puede responder
       const canRespond = await EvaluationModel.canStudentRespond(evaluationId, studentId);
       
       if (!canRespond.canRespond) {
@@ -30,21 +30,18 @@ export class StudentEvaluationService {
         throw new Error(canRespond.reason);
       }
 
-      // Verificar si ya tiene una evaluación iniciada
       const existing = await StudentEvaluationModel.findByEvaluationAndStudent(evaluationId, studentId);
       
       if (existing) {
-        // Si ya está completada, lanzar error específico
         if (existing.completada) {
           logger.warn(`Estudiante ${studentId} ya completó la evaluación ${evaluationId}`);
           throw new Error('Ya completaste esta evaluación. No puedes modificar tus respuestas.');
         }
 
         logger.info(`Estudiante ${studentId} ya tiene evaluación ${evaluationId} iniciada (puede continuar)`);
-          return existing;
+        return existing;
       }
 
-      // Crear nueva evaluación de estudiante
       const studentEvaluation = await StudentEvaluationModel.create({
         evaluationId,
         studentId
@@ -69,23 +66,19 @@ export class StudentEvaluationService {
     try {
       logger.info(`Guardando respuestas para evaluación de estudiante ${studentEvaluationId}`);
 
-      // Verificar que la evaluación existe
       const studentEvaluation = await StudentEvaluationModel.findById(studentEvaluationId);
       
       if (!studentEvaluation) {
         throw new Error('Evaluación de estudiante no encontrada');
       }
 
-      // Verificar que no esté ya completada
       if (studentEvaluation.completada) {
         throw new Error('Esta evaluación ya fue completada');
       }
 
-      // Obtener preguntas de la plantilla
       const evaluation = studentEvaluation.evaluation;
       const questions = await QuestionModel.findByTemplate(evaluation.template.id);
 
-      // Validar que se respondieron todas las preguntas obligatorias
       const obligatoryQuestions = questions.filter(q => q.esObligatoria);
       const answeredQuestionIds = responses.map(r => parseInt(r.questionId));
       
@@ -97,7 +90,6 @@ export class StudentEvaluationService {
         throw new Error(`Faltan responder ${missingQuestions.length} preguntas obligatorias`);
       }
 
-      // Validar formato de respuestas
       for (const response of responses) {
         const question = questions.find(q => q.id === parseInt(response.questionId));
         
@@ -105,7 +97,6 @@ export class StudentEvaluationService {
           throw new Error(`Pregunta ${response.questionId} no encontrada en la plantilla`);
         }
 
-        // Validar tipo de respuesta
         if (question.tipoRespuesta === 'escala') {
           if (!response.valorNumerico) {
             throw new Error(`La pregunta ${question.nroPregunta} requiere un valor numérico`);
@@ -120,7 +111,6 @@ export class StudentEvaluationService {
         }
       }
 
-      // Guardar respuestas en una transacción
       const savedResponses = [];
       
       for (const response of responses) {
@@ -133,7 +123,6 @@ export class StudentEvaluationService {
         savedResponses.push(saved);
       }
 
-      // Marcar evaluación como completada
       const completedEvaluation = await StudentEvaluationModel.markAsCompleted(
         studentEvaluationId,
         comentario
@@ -242,22 +231,28 @@ export class StudentEvaluationService {
         progress,
         responseStats,
         generalAverage,
-        comments
+        comments,
+        sentimentStats
       ] = await Promise.all([
         this.getEvaluationProgress(evaluationId),
         ResponseModel.getEvaluationStatistics(evaluationId),
         ResponseModel.getGeneralAverage(evaluationId),
-        StudentEvaluationModel.getAnonymousComments(evaluationId)
+        StudentEvaluationModel.getAnonymousComments(evaluationId),
+        StudentEvaluationModel.getSentimentStatistics(evaluationId)
       ]);
 
       const statistics = {
         progress,
         generalAverage,
         questionStatistics: responseStats,
+        sentimentAnalysis: sentimentStats,
         totalComments: comments.length,
         comments: comments.map(c => ({
           comentario: c.comentario,
-          fecha: c.fechaCompleta
+          fecha: c.fechaCompleta,
+          sentiment: c.sentiment,
+          sentimentScore: c.sentimentScore,
+          sentimentAnalyzedAt: c.sentimentAnalyzedAt
         }))
       };
 
@@ -291,7 +286,6 @@ export class StudentEvaluationService {
         return { canContinue: false, reason: 'Esta evaluación ya fue completada' };
       }
 
-      // Verificar que la evaluación aún esté abierta
       const evaluation = studentEvaluation.evaluation;
       const now = new Date();
 
@@ -333,21 +327,18 @@ export class StudentEvaluationService {
       const savedResponses = [];
 
       for (const response of responses) {
-        // Verificar si ya existe una respuesta para esta pregunta
         const existing = await ResponseModel.findByEvaluationAndQuestion(
           studentEvaluationId,
           response.questionId
         );
 
         if (existing) {
-          // Actualizar respuesta existente
           const updated = await ResponseModel.update(existing.id, {
             valorNumerico: response.valorNumerico,
             valorTexto: response.valorTexto
           });
           savedResponses.push(updated);
         } else {
-          // Crear nueva respuesta
           const created = await ResponseModel.create({
             studentEvaluationId,
             questionId: response.questionId,
@@ -366,6 +357,121 @@ export class StudentEvaluationService {
       };
     } catch (error) {
       logger.error('Error guardando respuestas parciales', error);
+      throw error;
+    }
+  }
+
+  // ==========================================
+  // 🆕 MÉTODOS PARA ANÁLISIS DE SENTIMIENTO
+  // ==========================================
+
+  /**
+   * Actualizar el sentimiento de un comentario
+   * @param {number} studentEvaluationId - ID de la evaluación del estudiante
+   * @param {string} sentiment - Tipo de sentimiento
+   * @param {number} score - Puntuación de confianza (0.0 - 1.0)
+   * @returns {Object} Resultado de la actualización
+   */
+  static async updateSentiment(studentEvaluationId, sentiment, score = null) {
+    try {
+      logger.info(`Actualizando sentimiento para evaluación ${studentEvaluationId}`);
+
+      // Validar tipo de sentimiento
+      const validSentiments = Object.values(SENTIMENT_TYPES);
+      if (!validSentiments.includes(sentiment)) {
+        throw new Error(`Sentimiento inválido. Valores permitidos: ${validSentiments.join(', ')}`);
+      }
+
+      // Validar score si se proporciona
+      if (score !== null && (score < 0 || score > 1)) {
+        throw new Error('El score debe estar entre 0.0 y 1.0');
+      }
+
+      const studentEvaluation = await StudentEvaluationModel.findById(studentEvaluationId);
+
+      if (!studentEvaluation) {
+        throw new Error('Evaluación de estudiante no encontrada');
+      }
+
+      if (!studentEvaluation.comentario) {
+        throw new Error('No hay comentario para analizar');
+      }
+
+      const updated = await StudentEvaluationModel.updateSentiment(
+        studentEvaluationId,
+        sentiment,
+        score
+      );
+
+      logger.success(`Sentimiento actualizado: ${sentiment} (score: ${score})`);
+
+      return updated;
+    } catch (error) {
+      logger.error('Error actualizando sentimiento', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtener comentarios pendientes de análisis
+   * @param {number} evaluationId - ID de la evaluación (opcional)
+   * @returns {Array} Lista de comentarios sin analizar
+   */
+  static async getUnanalyzedComments(evaluationId = null) {
+    try {
+      logger.info(`Obteniendo comentarios sin analizar${evaluationId ? ` para evaluación ${evaluationId}` : ''}`);
+      
+      const comments = await StudentEvaluationModel.findUnanalyzedComments(evaluationId);
+      
+      logger.success(`${comments.length} comentarios sin analizar encontrados`);
+      return comments;
+    } catch (error) {
+      logger.error('Error obteniendo comentarios sin analizar', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtener estadísticas de sentimientos de una evaluación
+   * @param {number} evaluationId - ID de la evaluación
+   * @returns {Object} Estadísticas de sentimientos
+   */
+  static async getSentimentStatistics(evaluationId) {
+    try {
+      logger.info(`Obteniendo estadísticas de sentimientos para evaluación ${evaluationId}`);
+      
+      const stats = await StudentEvaluationModel.getSentimentStatistics(evaluationId);
+      
+      logger.success('Estadísticas de sentimientos obtenidas');
+      return stats;
+    } catch (error) {
+      logger.error('Error obteniendo estadísticas de sentimientos', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtener comentarios por tipo de sentimiento
+   * @param {number} evaluationId - ID de la evaluación
+   * @param {string} sentimentType - Tipo de sentimiento
+   * @returns {Array} Lista de comentarios
+   */
+  static async getCommentsBySentiment(evaluationId, sentimentType) {
+    try {
+      // Validar tipo de sentimiento
+      const validSentiments = Object.values(SENTIMENT_TYPES);
+      if (!validSentiments.includes(sentimentType)) {
+        throw new Error(`Sentimiento inválido. Valores permitidos: ${validSentiments.join(', ')}`);
+      }
+
+      logger.info(`Obteniendo comentarios ${sentimentType} para evaluación ${evaluationId}`);
+      
+      const comments = await StudentEvaluationModel.findBySentiment(evaluationId, sentimentType);
+      
+      logger.success(`${comments.length} comentarios ${sentimentType} encontrados`);
+      return comments;
+    } catch (error) {
+      logger.error('Error obteniendo comentarios por sentimiento', error);
       throw error;
     }
   }

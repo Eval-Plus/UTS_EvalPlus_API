@@ -72,7 +72,7 @@ export class StudentEvaluationModel {
           include: {
             subject: { select: { nombre: true, codigo: true } },
             teacher: { select: { nombreCompleto: true } },
-            template: { select: { id: true, nombre: true } }  // ← AGREGAR
+            template: { select: { id: true, nombre: true } }
           }
         },
         responses: {
@@ -150,6 +150,11 @@ export class StudentEvaluationModel {
     if (data.comentario !== undefined) updateData.comentario = data.comentario;
     if (data.fechaInicio !== undefined) updateData.fechaInicio = new Date(data.fechaInicio);
     if (data.fechaCompleta !== undefined) updateData.fechaCompleta = new Date(data.fechaCompleta);
+    
+    // 🆕 Campos de sentimiento
+    if (data.sentiment !== undefined) updateData.sentiment = data.sentiment;
+    if (data.sentimentScore !== undefined) updateData.sentimentScore = data.sentimentScore;
+    if (data.sentimentAnalyzedAt !== undefined) updateData.sentimentAnalyzedAt = new Date(data.sentimentAnalyzedAt);
 
     return await prisma.studentEvaluation.update({
       where: { id: parseInt(id) },
@@ -213,7 +218,6 @@ export class StudentEvaluationModel {
    * @returns {Object} Estadísticas de progreso
    */
   static async getEvaluationProgress(evaluationId) {
-    // Obtener total de estudiantes inscritos en la materia
     const evaluation = await prisma.evaluation.findUnique({
       where: { id: parseInt(evaluationId) },
       include: {
@@ -254,71 +258,178 @@ export class StudentEvaluationModel {
   }
 
   /**
-  * Obtener comentarios anónimos de una evaluación con metadata
-  * @param {number} evaluationId - ID de la evaluación
-  * @param {Object} options - Opciones de paginación y filtros
-  * @returns {Object} Comentarios con metadata
-  */
-  static async getAnonymousComments(evaluationId, options = {}) {
-    const { page = 1, limit = 50 } = options;
-    const skip = (page - 1) * limit;
+   * Obtener comentarios anónimos de una evaluación
+   * @param {number} evaluationId - ID de la evaluación
+   * @returns {Array} Lista de comentarios (sin datos del estudiante)
+   */
+  static async getAnonymousComments(evaluationId) {
+    const evaluations = await prisma.studentEvaluation.findMany({
+      where: {
+        evaluationId: parseInt(evaluationId),
+        completada: true,
+        comentario: { not: null }
+      },
+      select: {
+        id: true,
+        comentario: true,
+        fechaCompleta: true,
+        sentiment: true,
+        sentimentScore: true,
+        sentimentAnalyzedAt: true
+      },
+      orderBy: { fechaCompleta: 'desc' }
+    });
 
-    const where = {
-      evaluationId: parseInt(evaluationId),
-      completada: true,
-      comentario: { not: null }
-    };
+    return evaluations;
+  }
 
-    // Obtener comentarios y total en paralelo
-    const [comments, total] = await Promise.all([
-      prisma.studentEvaluation.findMany({
-        where,
-        select: {
-          id: true,
-          comentario: true,
-          fechaCompleta: true
-        },
-        orderBy: { fechaCompleta: 'desc' },
-        skip,
-        take: limit
-      }),
-      prisma.studentEvaluation.count({ where })
-    ]);
+  // ==========================================
+  // 🆕 MÉTODOS PARA ANÁLISIS DE SENTIMIENTO
+  // ==========================================
 
-    // Calcular metadata
-    const metadata = {
-      total,
-      promedioCaracteres: comments.length > 0
-        ? Math.round(
-            comments.reduce((sum, c) => sum + (c.comentario?.length || 0), 0) / 
-            comments.length
-          )
-        : 0,
-      fechaUltimoComentario: comments[0]?.fechaCompleta || null,
-      rangoFechas: comments.length > 0 
-        ? {
-            inicio: comments[comments.length - 1].fechaCompleta,
-            fin: comments[0].fechaCompleta
-          }
-        : null
-    };
-
-    // Formatear respuesta
-    return {
-      comments: comments.map(c => ({
-        id: c.id,
-        comentario: c.comentario,
-        fechaCompleta: c.fechaCompleta,
-        sentiment: 'neutral' // 🔮 Futuro: IA sentiment analysis
-      })),
-      metadata,
-      pagination: {
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-        hasMore: page * limit < total
+  /**
+   * Actualizar el sentimiento de un comentario
+   * @param {number} id - ID de la evaluación del estudiante
+   * @param {string} sentiment - Tipo de sentimiento
+   * @param {number} score - Puntuación de confianza (0.0 - 1.0)
+   * @returns {Object} Evaluación actualizada
+   */
+  static async updateSentiment(id, sentiment, score = null) {
+    return await prisma.studentEvaluation.update({
+      where: { id: parseInt(id) },
+      data: {
+        sentiment,
+        sentimentScore: score,
+        sentimentAnalyzedAt: new Date()
+      },
+      select: {
+        id: true,
+        comentario: true,
+        sentiment: true,
+        sentimentScore: true,
+        sentimentAnalyzedAt: true
       }
+    });
+  }
+
+  /**
+   * Obtener evaluaciones con comentarios sin analizar
+   * @param {number} evaluationId - ID de la evaluación (opcional)
+   * @returns {Array} Lista de evaluaciones pendientes de análisis
+   */
+  static async findUnanalyzedComments(evaluationId = null) {
+    const where = {
+      completada: true,
+      comentario: { not: null },
+      sentiment: null
     };
+
+    if (evaluationId) {
+      where.evaluationId = parseInt(evaluationId);
+    }
+
+    return await prisma.studentEvaluation.findMany({
+      where,
+      select: {
+        id: true,
+        evaluationId: true,
+        comentario: true,
+        fechaCompleta: true,
+        evaluation: {
+          select: {
+            id: true,
+            subject: { select: { nombre: true, codigo: true } },
+            teacher: { select: { nombreCompleto: true } }
+          }
+        }
+      },
+      orderBy: { fechaCompleta: 'desc' }
+    });
+  }
+
+  /**
+   * Obtener estadísticas de sentimientos de una evaluación
+   * @param {number} evaluationId - ID de la evaluación
+   * @returns {Object} Estadísticas de sentimientos
+   */
+  static async getSentimentStatistics(evaluationId) {
+    const evaluations = await prisma.studentEvaluation.findMany({
+      where: {
+        evaluationId: parseInt(evaluationId),
+        completada: true,
+        comentario: { not: null }
+      },
+      select: {
+        sentiment: true,
+        sentimentScore: true
+      }
+    });
+
+    const total = evaluations.length;
+    const analyzed = evaluations.filter(e => e.sentiment !== null).length;
+    const pending = total - analyzed;
+
+    // Contar por tipo de sentimiento
+    const sentimentCounts = {
+      positive: 0,
+      negative: 0,
+      neutral: 0,
+      mixed: 0,
+      unanalyzed: pending
+    };
+
+    evaluations.forEach(e => {
+      if (e.sentiment) {
+        sentimentCounts[e.sentiment]++;
+      }
+    });
+
+    // Calcular promedio de scores
+    const scores = evaluations
+      .filter(e => e.sentimentScore !== null)
+      .map(e => e.sentimentScore);
+    
+    const averageScore = scores.length > 0
+      ? scores.reduce((sum, score) => sum + score, 0) / scores.length
+      : null;
+
+    return {
+      total,
+      analyzed,
+      pending,
+      sentimentDistribution: sentimentCounts,
+      averageConfidence: averageScore ? parseFloat(averageScore.toFixed(3)) : null,
+      percentageAnalyzed: total > 0 ? parseFloat(((analyzed / total) * 100).toFixed(2)) : 0
+    };
+  }
+
+  /**
+   * Obtener comentarios filtrados por sentimiento
+   * @param {number} evaluationId - ID de la evaluación
+   * @param {string} sentimentType - Tipo de sentimiento a filtrar
+   * @returns {Array} Lista de comentarios con ese sentimiento
+   */
+  static async findBySentiment(evaluationId, sentimentType) {
+    return await prisma.studentEvaluation.findMany({
+      where: {
+        evaluationId: parseInt(evaluationId),
+        completada: true,
+        comentario: { not: null },
+        sentiment: sentimentType
+      },
+      select: {
+        id: true,
+        comentario: true,
+        sentiment: true,
+        sentimentScore: true,
+        sentimentAnalyzedAt: true,
+        fechaCompleta: true
+      },
+      orderBy: [
+        { sentimentScore: 'desc' },
+        { fechaCompleta: 'desc' }
+      ]
+    });
   }
 }
 

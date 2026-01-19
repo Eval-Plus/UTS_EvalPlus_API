@@ -149,4 +149,59 @@ router.get(
   StudentEvaluationController.getQuestionTextResponses
 );
 
+// ==========================================
+// 🆕 RUTAS PARA ANÁLISIS DE SENTIMIENTO
+// ==========================================
+
+/**
+ * @route   PUT /api/student-evaluations/:id/sentiment
+ * @desc    Actualizar el sentimiento de un comentario
+ * @body    { sentiment: string, score?: number }
+ * @access  Private (Admin - para integración con IA)
+ */
+router.put(
+  '/:id/sentiment',
+  Authenticate,
+  requireRole(ROLES.ADMIN),
+  StudentEvaluationController.updateSentiment
+);
+
+/**
+ * @route   GET /api/student-evaluations/unanalyzed
+ * @desc    Obtener comentarios sin analizar
+ * @query   evaluationId (opcional)
+ * @access  Private (Admin)
+ */
+router.get(
+  '/unanalyzed',
+  Authenticate,
+  requireRole(ROLES.ADMIN),
+  StudentEvaluationController.getUnanalyzedComments
+);
+
+/**
+ * @route   GET /api/student-evaluations/evaluation/:evaluationId/sentiment-stats
+ * @desc    Obtener estadísticas de sentimientos de una evaluación
+ * @access  Private (Teacher, Admin)
+ */
+router.get(
+  '/evaluation/:evaluationId/sentiment-stats',
+  Authenticate,
+  requireRole(ROLES.TEACHER, ROLES.ADMIN),
+  StudentEvaluationController.getSentimentStatistics
+);
+
+/**
+ * @route   GET /api/student-evaluations/evaluation/:evaluationId/sentiment/:type
+ * @desc    Obtener comentarios filtrados por tipo de sentimiento
+ * @params  type: 'positive', 'negative', 'neutral', 'mixed'
+ * @access  Private (Teacher, Admin)
+ */
+router.get(
+  '/evaluation/:evaluationId/sentiment/:type',
+  Authenticate,
+  requireRole(ROLES.TEACHER, ROLES.ADMIN),
+  StudentEvaluationController.getCommentsBySentiment
+);
+
 export default router;

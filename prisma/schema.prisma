@@ -232,6 +232,12 @@ model StudentEvaluation {
   studentId      Int       @map("student_id")
   completada     Boolean   @default(false)
   comentario     String?   @db.Text  // Comentario anónimo del estudiante
+
+  // Campo para análisis de sentimiento con IA
+  sentiment      String?   @db.VarChar(20) // 'positive', 'negative', 'neutral', 'mixed'
+  sentimentScore Float?    @map("sentiment_score") // Puntuación de confianza (0.0 - 1.0)
+  sentimentAnalyzedAt DateTime? @map("sentiment_analyzed_at") // Fecha de análisis
+
   fechaInicio    DateTime? @map("fecha_inicio")  // Cuando empezó a responder
   fechaCompleta  DateTime? @map("fecha_completa") // Cuando terminó
   createdAt      DateTime  @default(now()) @map("created_at")
@@ -245,6 +251,7 @@ model StudentEvaluation {
   
   @@unique([evaluationId, studentId])
   @@index([studentId, completada])
+  @@index([sentiment])
   @@map("student_evaluations")
 }
 
