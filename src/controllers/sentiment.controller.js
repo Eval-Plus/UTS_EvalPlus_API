@@ -1,13 +1,13 @@
 /**
  * Controlador de Análisis de Sentimiento
- * Maneja endpoints relacionados con análisis de IA
+ * Maneja las peticiones relacionadas con el análisis de sentimientos usando Hugging Face
  */
 
-import { StudentEvaluationService } from '../services/student-evaluation.service.js';
 import { SentimentAnalysisService } from '../services/ai/sentiment-analysis.service.js';
+import { StudentEvaluationModel } from '../models/student-evaluation.model.js';
 import { successResponse, errorResponse } from '../utils/response.js';
-import { MESSAGES, HTTP_STATUS } from '../config/constants.js';
 import { createLogger } from '../utils/logger.js';
+import { MESSAGES, HTTP_STATUS } from '../config/constants.js';
 
 const logger = createLogger('SentimentController');
 
@@ -15,35 +15,60 @@ export class SentimentController {
   /**
    * Re-analizar comentarios pendientes
    * POST /api/sentiment/reanalyze
-   * Body: { evaluationId?: number }
-   * @access Private (Admin)
+   * @body { evaluationId?: number }
    */
   static async reanalyzeComments(req, res) {
     try {
       const { evaluationId } = req.body;
 
-      logger.info(`Iniciando re-análisis de comentarios${evaluationId ? ` para evaluación ${evaluationId}` : ''}`);
+      logger.info(`Re-analizando comentarios${evaluationId ? ` de evaluación ${evaluationId}` : ''}`);
 
-      const result = await StudentEvaluationService.reanalyzeComments(
+      // Obtener comentarios sin analizar
+      const unanalyzed = await StudentEvaluationModel.findUnanalyzedComments(
         evaluationId ? parseInt(evaluationId) : null
       );
+
+      if (unanalyzed.length === 0) {
+        return successResponse(
+          res,
+          {
+            total: 0,
+            success: 0,
+            failed: 0,
+            skipped: 0,
+            results: []
+          },
+          'No hay comentarios pendientes de análisis',
+          HTTP_STATUS.OK
+        );
+      }
+
+      logger.info(`Encontrados ${unanalyzed.length} comentarios sin analizar`);
+
+      // Analizar en lote
+      const result = await SentimentAnalysisService.analyzeBatch(unanalyzed);
 
       return successResponse(
         res,
         result,
-        `Re-análisis completado: ${result.success} exitosos, ${result.failed} fallidos`,
+        MESSAGES.SENTIMENT.BATCH_ANALYZED,
         HTTP_STATUS.OK
       );
+
     } catch (error) {
-      logger.error('Error en re-análisis', error);
-      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
+      logger.error('Error re-analizando comentarios', error);
+      return errorResponse(
+        res,
+        MESSAGES.SENTIMENT.ANALYSIS_FAILED,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
   /**
-   * Analizar un comentario específico manualmente
+   * Analizar manualmente un comentario específico
    * POST /api/sentiment/analyze/:id
-   * @access Private (Admin)
+   * @params id - ID de la evaluación del estudiante
    */
   static async analyzeComment(req, res) {
     try {
@@ -51,8 +76,18 @@ export class SentimentController {
 
       logger.info(`Analizando comentario de evaluación ${id}`);
 
-      const studentEvaluation = await StudentEvaluationService.getStudentEvaluationById(parseInt(id));
+      // Verificar que existe
+      const studentEvaluation = await StudentEvaluationModel.findById(parseInt(id));
 
+      if (!studentEvaluation) {
+        return errorResponse(
+          res,
+          'Evaluación de estudiante no encontrada',
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      // Verificar que tenga comentario
       if (!studentEvaluation.comentario) {
         return errorResponse(
           res,
@@ -61,6 +96,7 @@ export class SentimentController {
         );
       }
 
+      // Analizar
       const result = await SentimentAnalysisService.analyzeAndUpdate(
         parseInt(id),
         studentEvaluation.comentario
@@ -68,67 +104,98 @@ export class SentimentController {
 
       return successResponse(
         res,
-        result,
+        {
+          id: result.id,
+          sentiment: result.sentiment,
+          sentimentScore: result.sentimentScore,
+          sentimentAnalyzedAt: result.sentimentAnalyzedAt,
+          analysis: result.analysis
+        },
         MESSAGES.SENTIMENT.ANALYZED,
         HTTP_STATUS.OK
       );
+
     } catch (error) {
       logger.error('Error analizando comentario', error);
-      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
+      return errorResponse(
+        res,
+        MESSAGES.SENTIMENT.ANALYSIS_FAILED,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
   /**
    * Obtener estadísticas del servicio de IA
    * GET /api/sentiment/stats
-   * @access Private (Admin)
    */
   static async getServiceStats(req, res) {
     try {
+      logger.info('Obteniendo estadísticas del servicio');
+
       const stats = SentimentAnalysisService.getStats();
+      const health = await SentimentAnalysisService.healthCheck();
 
       return successResponse(
         res,
-        stats,
-        'Estadísticas del servicio de IA obtenidas',
+        {
+          ...stats,
+          health
+        },
+        'Estadísticas obtenidas exitosamente',
         HTTP_STATUS.OK
       );
+
     } catch (error) {
       logger.error('Error obteniendo estadísticas', error);
-      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
+      return errorResponse(
+        res,
+        'Error obteniendo estadísticas del servicio',
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
   /**
-   * Precargar el modelo de IA
+   * Verificar estado de la API (health check)
    * POST /api/sentiment/load-model
-   * @access Private (Admin)
    */
   static async loadModel(req, res) {
     try {
-      logger.info('Iniciando carga del modelo de IA...');
+      logger.info('Verificando estado de la API de Hugging Face');
 
-      await SentimentAnalysisService.loadModel();
+      const health = await SentimentAnalysisService.healthCheck();
 
-      const stats = SentimentAnalysisService.getStats();
+      if (health.status === 'healthy') {
+        return successResponse(
+          res,
+          health,
+          MESSAGES.SENTIMENT.MODEL_READY,
+          HTTP_STATUS.OK
+        );
+      } else {
+        return errorResponse(
+          res,
+          MESSAGES.SENTIMENT.API_ERROR,
+          HTTP_STATUS.INTERNAL_ERROR,
+          health
+        );
+      }
 
-      return successResponse(
-        res,
-        stats,
-        MESSAGES.SENTIMENT.MODEL_READY,
-        HTTP_STATUS.OK
-      );
     } catch (error) {
-      logger.error('Error cargando modelo', error);
-      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
+      logger.error('Error verificando estado de la API', error);
+      return errorResponse(
+        res,
+        MESSAGES.SENTIMENT.API_ERROR,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 
   /**
-   * Probar análisis con texto personalizado (para testing)
+   * Probar análisis con texto personalizado
    * POST /api/sentiment/test
-   * Body: { text: string }
-   * @access Private (Admin)
+   * @body { text: string }
    */
   static async testAnalysis(req, res) {
     try {
@@ -137,12 +204,12 @@ export class SentimentController {
       if (!text || text.trim().length === 0) {
         return errorResponse(
           res,
-          'Se requiere un texto para analizar',
+          'Debes proporcionar un texto para analizar',
           HTTP_STATUS.BAD_REQUEST
         );
       }
 
-      logger.info('Probando análisis de sentimiento...');
+      logger.info(`Probando análisis con texto: "${text.substring(0, 50)}..."`);
 
       const result = await SentimentAnalysisService.analyzeComment(text);
 
@@ -150,14 +217,19 @@ export class SentimentController {
         res,
         {
           text,
-          analysis: result
+          result
         },
         'Análisis de prueba completado',
         HTTP_STATUS.OK
       );
+
     } catch (error) {
       logger.error('Error en análisis de prueba', error);
-      return errorResponse(res, error.message, HTTP_STATUS.INTERNAL_ERROR);
+      return errorResponse(
+        res,
+        MESSAGES.SENTIMENT.ANALYSIS_FAILED,
+        HTTP_STATUS.INTERNAL_ERROR
+      );
     }
   }
 }

@@ -30,49 +30,50 @@ export const SENTIMENT_THRESHOLDS = {
   LOW_CONFIDENCE: 0.4        // Confianza baja
 };
 
-// 🆕 Configuración del modelo de IA
+// 🆕 Configuración del modelo de IA (Hugging Face)
 export const AI_CONFIG = {
-  // Modelo de análisis de sentimiento en español
-  MODEL_NAME: 'Xenova/distilbert-base-uncased-finetuned-sst-2-english',
-  // Modelo alternativo mejor para español (se puede cambiar)
-  MODEL_NAME_ES: 'Xenova/bert-base-multilingual-uncased-sentiment',
+  // Modelo de análisis de sentimiento en español (Hugging Face)
+  MODEL_NAME: 'nlptown/bert-base-multilingual-uncased-sentiment',
   
-  // Configuración de cache
-  CACHE_DIR: './cache/transformers',
+  // API de Hugging Face (URL actualizada - Enero 2026)
+  API_URL: 'https://router.huggingface.co/models/nlptown/bert-base-multilingual-uncased-sentiment',
   
-  // Timeouts
-  ANALYSIS_TIMEOUT: 10000, // 10 segundos
+  // Timeouts y reintentos
+  REQUEST_TIMEOUT: 30000, // 30 segundos
+  MAX_RETRIES: 3,
+  RETRY_DELAY: 2000, // 2 segundos entre reintentos
   
   // Configuración de procesamiento
-  MAX_COMMENT_LENGTH: 512, // Máximo de tokens
+  MAX_COMMENT_LENGTH: 512, // Máximo de caracteres
   MIN_COMMENT_LENGTH: 5,   // Mínimo de caracteres para analizar
   
-  // Mapeo de labels del modelo a nuestros tipos
+  // Mapeo de labels del modelo nlptown a nuestros tipos
+  // Este modelo retorna: "1 star", "2 stars", "3 stars", "4 stars", "5 stars"
   LABEL_MAPPING: {
-    'POSITIVE': SENTIMENT_TYPES.POSITIVE,
-    'NEGATIVE': SENTIMENT_TYPES.NEGATIVE,
-    'NEUTRAL': SENTIMENT_TYPES.NEUTRAL,
-    'LABEL_0': SENTIMENT_TYPES.NEGATIVE,  // Para algunos modelos
-    'LABEL_1': SENTIMENT_TYPES.NEUTRAL,
-    'LABEL_2': SENTIMENT_TYPES.POSITIVE,
-    '1 star': SENTIMENT_TYPES.NEGATIVE,
-    '2 stars': SENTIMENT_TYPES.NEGATIVE,
-    '3 stars': SENTIMENT_TYPES.NEUTRAL,
-    '4 stars': SENTIMENT_TYPES.POSITIVE,
-    '5 stars': SENTIMENT_TYPES.POSITIVE,
+    '1 star': SENTIMENT_TYPES.NEGATIVE,   // Muy negativo
+    '2 stars': SENTIMENT_TYPES.NEGATIVE,  // Negativo
+    '3 stars': SENTIMENT_TYPES.NEUTRAL,   // Neutral
+    '4 stars': SENTIMENT_TYPES.POSITIVE,  // Positivo
+    '5 stars': SENTIMENT_TYPES.POSITIVE,  // Muy positivo
   },
   
   // Palabras clave para detección rápida (fallback)
   POSITIVE_KEYWORDS: [
     'excelente', 'muy bueno', 'genial', 'increíble', 'fantástico',
     'dedicado', 'claro', 'comprensible', 'paciente', 'atento',
-    'recomiendo', 'mejor profesor', 'aprendí mucho'
+    'recomiendo', 'mejor profesor', 'aprendí mucho', 'explica bien',
+    'enseña bien', 'motivador', 'inspirador'
   ],
   NEGATIVE_KEYWORDS: [
     'malo', 'pésimo', 'terrible', 'horrible', 'confuso',
     'no explica', 'difícil', 'aburrido', 'no entiende',
-    'no recomiendo', 'peor profesor'
+    'no recomiendo', 'peor profesor', 'perdida de tiempo',
+    'no aprendí', 'desorganizado'
   ],
+  
+  // Configuración de batch processing
+  BATCH_SIZE: 10, // Procesar 10 comentarios a la vez
+  BATCH_DELAY: 1000, // 1 segundo entre lotes
 };
 
 // Configuración de asignación automática
@@ -143,7 +144,9 @@ export const MESSAGES = {
     ANALYSIS_FAILED: 'Error en el análisis de sentimiento',
     ANALYSIS_STARTED: 'Análisis de sentimiento iniciado en segundo plano',
     MODEL_LOADING: 'Cargando modelo de IA...',
-    MODEL_READY: 'Modelo de IA listo'
+    MODEL_READY: 'API de Hugging Face lista',
+    API_ERROR: 'Error comunicándose con la API de Hugging Face',
+    RATE_LIMIT: 'Límite de solicitudes alcanzado, intenta más tarde'
   },
 
   // Permisos
@@ -171,6 +174,7 @@ export const HTTP_STATUS = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  TOO_MANY_REQUESTS: 429,
   INTERNAL_ERROR: 500
 };
 

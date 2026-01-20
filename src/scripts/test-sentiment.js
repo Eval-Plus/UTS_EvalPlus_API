@@ -1,5 +1,5 @@
 /**
- * Script de prueba para el servicio de análisis de sentimiento
+ * Script de prueba para el servicio de análisis de sentimiento con Hugging Face
  * Ejecutar: node src/scripts/test-sentiment.js
  */
 
@@ -72,9 +72,9 @@ const testComments = [
 ];
 
 async function runTests() {
-  console.log('\n' + '='.repeat(60));
-  console.log('🧪 PRUEBA DE ANÁLISIS DE SENTIMIENTO');
-  console.log('='.repeat(60) + '\n');
+  console.log('\n' + '='.repeat(70));
+  console.log('🧪 PRUEBA DE ANÁLISIS DE SENTIMIENTO CON HUGGING FACE API');
+  console.log('='.repeat(70) + '\n');
 
   let totalTests = testComments.length;
   let correctPredictions = 0;
@@ -82,10 +82,30 @@ async function runTests() {
   const results = [];
 
   try {
-    // Precargar modelo
-    logger.info('⏳ Cargando modelo de IA...');
-    await SentimentAnalysisService.loadModel();
-    logger.success('✅ Modelo cargado\n');
+    // Verificar configuración
+    logger.info('🔍 Verificando configuración...');
+    const stats = SentimentAnalysisService.getStats();
+    
+    if (!stats.configured) {
+      logger.error('❌ HUGGINGFACE_API_KEY no está configurada');
+      logger.error('Por favor, configura la variable de entorno en tu archivo .env');
+      process.exit(1);
+    }
+    
+    logger.success('✅ Configuración válida');
+    logger.info(`📊 Modelo: ${stats.model}`);
+    logger.info(`🌐 API URL: ${stats.apiUrl}\n`);
+
+    // Health check
+    logger.info('🏥 Verificando estado de la API...');
+    const health = await SentimentAnalysisService.healthCheck();
+    
+    if (health.status !== 'healthy') {
+      logger.error('❌ La API no está disponible:', health.error);
+      process.exit(1);
+    }
+    
+    logger.success('✅ API disponible\n');
 
     // Ejecutar pruebas
     for (let i = 0; i < testComments.length; i++) {
@@ -110,19 +130,26 @@ async function runTests() {
           console.log(`❌ INCORRECTO: ${result.sentiment.toUpperCase()}`);
         }
 
-        console.log(`Confianza: ${(result.score * 100).toFixed(1)}%`);
-        console.log(`Método: ${result.method}`);
-        console.log(`Tiempo: ${duration}ms`);
+        console.log(`🎯 Confianza: ${(result.score * 100).toFixed(1)}%`);
+        console.log(`📌 Label original: ${result.label || 'N/A'}`);
+        console.log(`⚙️  Método: ${result.method}`);
+        console.log(`⏱️  Tiempo: ${duration}ms`);
 
         results.push({
           text,
           expected,
           actual: result.sentiment,
           score: result.score,
+          label: result.label,
           method: result.method,
           duration,
           correct: isCorrect
         });
+
+        // Pequeña pausa entre solicitudes para no saturar la API
+        if (i < testComments.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
 
       } catch (error) {
         console.log(`❌ ERROR: ${error.message}`);
@@ -139,9 +166,9 @@ async function runTests() {
     }
 
     // Resumen
-    console.log('\n' + '='.repeat(60));
+    console.log('\n' + '='.repeat(70));
     console.log('📊 RESUMEN DE RESULTADOS');
-    console.log('='.repeat(60));
+    console.log('='.repeat(70));
     console.log(`Total de pruebas: ${totalTests}`);
     console.log(`✅ Correctas: ${correctPredictions} (${(correctPredictions / totalTests * 100).toFixed(1)}%)`);
     console.log(`❌ Incorrectas: ${incorrectPredictions} (${(incorrectPredictions / totalTests * 100).toFixed(1)}%)`);
@@ -159,12 +186,12 @@ async function runTests() {
       console.log(`  - ${method}: ${count} (${(count / totalTests * 100).toFixed(1)}%)`);
     });
 
-    // Tiempo promedio
-    const avgDuration = results
-      .filter(r => r.duration)
-      .reduce((sum, r) => sum + r.duration, 0) / results.length;
-    
-    console.log(`\n⏱️ Tiempo promedio: ${avgDuration.toFixed(0)}ms`);
+    // Tiempo promedio (solo para método API)
+    const apiResults = results.filter(r => r.method === 'huggingface' && r.duration);
+    if (apiResults.length > 0) {
+      const avgDuration = apiResults.reduce((sum, r) => sum + r.duration, 0) / apiResults.length;
+      console.log(`\n⏱️  Tiempo promedio (API): ${avgDuration.toFixed(0)}ms`);
+    }
 
     // Confianza promedio
     const avgConfidence = results
@@ -176,22 +203,39 @@ async function runTests() {
     // Detalles de errores
     const errors = results.filter(r => !r.correct);
     if (errors.length > 0) {
-      console.log('\n⚠️ PREDICCIONES INCORRECTAS:');
+      console.log('\n⚠️  PREDICCIONES INCORRECTAS:');
       errors.forEach((err, idx) => {
         console.log(`\n${idx + 1}. "${err.text}"`);
         console.log(`   Esperado: ${err.expected} | Obtenido: ${err.actual}`);
         if (err.score) {
           console.log(`   Confianza: ${(err.score * 100).toFixed(1)}%`);
         }
+        if (err.label) {
+          console.log(`   Label: ${err.label}`);
+        }
       });
     }
 
-    console.log('\n' + '='.repeat(60));
-    console.log('✅ Pruebas completadas');
-    console.log('='.repeat(60) + '\n');
+    // Distribución de labels
+    const labelCounts = results.reduce((acc, r) => {
+      if (r.label) {
+        acc[r.label] = (acc[r.label] || 0) + 1;
+      }
+      return acc;
+    }, {});
 
-    // Liberar recursos
-    await SentimentAnalysisService.dispose();
+    if (Object.keys(labelCounts).length > 0) {
+      console.log('\n📊 Distribución de labels del modelo:');
+      Object.entries(labelCounts)
+        .sort(([, a], [, b]) => b - a)
+        .forEach(([label, count]) => {
+          console.log(`  - ${label}: ${count}`);
+        });
+    }
+
+    console.log('\n' + '='.repeat(70));
+    console.log('✅ Pruebas completadas');
+    console.log('='.repeat(70) + '\n');
 
   } catch (error) {
     logger.error('Error ejecutando pruebas', error);
