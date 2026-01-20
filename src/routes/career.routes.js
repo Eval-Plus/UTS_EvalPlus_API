@@ -11,7 +11,7 @@ const router = Router();
  * @desc    Obtener todas las carreras activas
  * @access  Public/Private (según tu necesidad)
  */
-router.get('/', CareerController.getAllCareers);
+router.get('/', Authenticate, CareerController.getAllCareers);
 
 /**
  * @route GET /api/careers/my
