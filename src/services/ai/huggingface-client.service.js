@@ -1,9 +1,9 @@
 /**
  * Cliente para la API de Hugging Face
- * Maneja las comunicaciones con el servicio de inferencia
+ * Maneja las comunicaciones con el servicio de inferencia usando el SDK oficial
  */
 
-import axios from 'axios';
+import { HfInference } from '@huggingface/inference';
 import { createLogger } from '../../utils/logger.js';
 import { AI_CONFIG } from '../../config/constants.js';
 
@@ -12,12 +12,16 @@ const logger = createLogger('HuggingFaceClient');
 class HuggingFaceClient {
   constructor() {
     this.apiKey = process.env.HUGGINGFACE_API_KEY;
-    this.apiUrl = AI_CONFIG.API_URL;
-    this.requestTimeout = AI_CONFIG.REQUEST_TIMEOUT;
+    this.modelName = AI_CONFIG.MODEL_NAME;
     this.maxRetries = AI_CONFIG.MAX_RETRIES;
     this.retryDelay = AI_CONFIG.RETRY_DELAY;
 
-    if (!this.apiKey) {
+    // Inicializar cliente de Hugging Face Inference
+    if (this.apiKey) {
+      this.client = new HfInference(this.apiKey);
+      logger.success('✅ Cliente de Hugging Face Inference inicializado');
+    } else {
+      this.client = null;
       logger.error('⚠️ HUGGINGFACE_API_KEY no está configurada en las variables de entorno');
     }
   }
@@ -27,7 +31,7 @@ class HuggingFaceClient {
    * @returns {boolean}
    */
   isConfigured() {
-    return !!this.apiKey;
+    return !!this.apiKey && !!this.client;
   }
 
   /**
@@ -43,66 +47,53 @@ class HuggingFaceClient {
    * Realiza una solicitud a la API con reintentos
    * @param {string} text - Texto a analizar
    * @param {number} attempt - Número de intento actual
-   * @returns {Promise<Object>} Respuesta de la API
+   * @returns {Promise<Array>} Respuesta de la API
    */
   async makeRequest(text, attempt = 1) {
     try {
       logger.info(`🌐 Enviando solicitud a Hugging Face (intento ${attempt}/${this.maxRetries})`);
 
-      const response = await axios.post(
-        this.apiUrl,
-        { inputs: text },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: this.requestTimeout
-        }
-      );
+      const startTime = Date.now();
+      
+      // Usar el SDK oficial de Hugging Face
+      const result = await this.client.textClassification({
+        model: this.modelName,
+        inputs: text
+      });
 
-      logger.success('✅ Respuesta recibida de Hugging Face');
-      return response.data;
+      const duration = Date.now() - startTime;
+
+      logger.success(`✅ Respuesta recibida de Hugging Face en ${duration}ms`);
+      return result;
 
     } catch (error) {
-      // Manejo de errores específicos
-      if (error.response) {
-        const status = error.response.status;
-        const data = error.response.data;
-
-        // Modelo cargándose (503)
-        if (status === 503 && data?.error?.includes('loading')) {
-          logger.warn(`⏳ Modelo cargándose... Esperando ${data.estimated_time || 20}s`);
-          
-          if (attempt < this.maxRetries) {
-            const waitTime = data.estimated_time 
-              ? Math.min(data.estimated_time * 1000, 30000) 
-              : this.retryDelay * attempt;
-            
-            await this.sleep(waitTime);
-            return this.makeRequest(text, attempt + 1);
-          }
+      // Modelo cargándose
+      if (error.message?.includes('loading') || error.message?.includes('currently loading')) {
+        logger.warn(`⏳ Modelo cargándose... Esperando antes de reintentar`);
+        
+        if (attempt < this.maxRetries) {
+          const waitTime = this.retryDelay * attempt;
+          await this.sleep(waitTime);
+          return this.makeRequest(text, attempt + 1);
         }
-
-        // Rate limit (429)
-        if (status === 429) {
-          logger.error('⚠️ Límite de solicitudes alcanzado');
-          throw new Error('RATE_LIMIT');
-        }
-
-        // Error de autenticación (401)
-        if (status === 401) {
-          logger.error('🔐 Error de autenticación - Verifica tu API key');
-          throw new Error('AUTH_ERROR');
-        }
-
-        // Otros errores
-        logger.error(`❌ Error HTTP ${status}:`, data);
-        throw new Error(`API_ERROR: ${data?.error || 'Error desconocido'}`);
+        
+        throw new Error('MODEL_LOADING');
       }
 
-      // Timeout
-      if (error.code === 'ECONNABORTED') {
+      // Rate limit
+      if (error.message?.includes('rate limit') || error.message?.includes('429')) {
+        logger.error('⚠️ Límite de solicitudes alcanzado');
+        throw new Error('RATE_LIMIT');
+      }
+
+      // Error de autenticación
+      if (error.message?.includes('401') || error.message?.includes('unauthorized')) {
+        logger.error('🔐 Error de autenticación - Verifica tu API key');
+        throw new Error('AUTH_ERROR');
+      }
+
+      // Timeout o error de red
+      if (error.message?.includes('timeout') || error.message?.includes('ECONNABORTED')) {
         logger.error('⏱️ Timeout en la solicitud');
         
         if (attempt < this.maxRetries) {
@@ -113,8 +104,8 @@ class HuggingFaceClient {
         throw new Error('TIMEOUT');
       }
 
-      // Error de red
-      if (error.request) {
+      // Error de red genérico
+      if (error.message?.includes('network') || error.message?.includes('ENOTFOUND')) {
         logger.error('🌐 Error de red - No se pudo conectar con Hugging Face');
         
         if (attempt < this.maxRetries) {
@@ -126,7 +117,15 @@ class HuggingFaceClient {
       }
 
       // Error desconocido
-      logger.error('❌ Error desconocido:', error.message);
+      logger.error('❌ Error en la solicitud:', error.message);
+      
+      // Reintentar si aún quedan intentos
+      if (attempt < this.maxRetries) {
+        logger.warn(`🔄 Reintentando (${attempt}/${this.maxRetries})...`);
+        await this.sleep(this.retryDelay * attempt);
+        return this.makeRequest(text, attempt + 1);
+      }
+      
       throw error;
     }
   }
@@ -134,7 +133,7 @@ class HuggingFaceClient {
   /**
    * Analiza el sentimiento de un texto
    * @param {string} text - Texto a analizar
-   * @returns {Promise<Array>} Resultados del análisis
+   * @returns {Promise<Object>} Resultados del análisis
    */
   async analyzeSentiment(text) {
     if (!this.isConfigured()) {
@@ -159,7 +158,7 @@ class HuggingFaceClient {
     logger.info(`⏱️ Análisis completado en ${duration}ms`);
 
     return {
-      results: results[0], // La API devuelve un array, tomamos el primer elemento
+      results, // Array de resultados del modelo
       duration,
       textLength: truncatedText.length
     };
@@ -173,6 +172,14 @@ class HuggingFaceClient {
     try {
       logger.info('🏥 Verificando estado de la API...');
       
+      if (!this.isConfigured()) {
+        return {
+          status: 'unhealthy',
+          configured: false,
+          error: 'API key no configurada'
+        };
+      }
+
       const testText = 'Este es un texto de prueba';
       await this.analyzeSentiment(testText);
       
@@ -180,9 +187,8 @@ class HuggingFaceClient {
       
       return {
         status: 'healthy',
-        configured: this.isConfigured(),
-        apiUrl: this.apiUrl,
-        model: AI_CONFIG.MODEL_NAME
+        configured: true,
+        model: this.modelName
       };
     } catch (error) {
       logger.error('❌ Error en health check:', error.message);
@@ -202,10 +208,9 @@ class HuggingFaceClient {
   getInfo() {
     return {
       configured: this.isConfigured(),
-      apiUrl: this.apiUrl,
-      model: AI_CONFIG.MODEL_NAME,
-      timeout: this.requestTimeout,
-      maxRetries: this.maxRetries
+      model: this.modelName,
+      maxRetries: this.maxRetries,
+      retryDelay: this.retryDelay
     };
   }
 }
