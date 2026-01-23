@@ -120,4 +120,45 @@ router.get('/analysis/teachers/:teacherId', AdminController.getTeacherAnalysis);
  */
 router.get('/analysis/stats', AdminController.getAnalysisStats);
 
+// ==========================================
+// 🆕 REPORTES DE DOCENTES - RESPUESTAS
+// ==========================================
+
+/**
+ * @route   GET /api/admin/reports/teachers/:teacherId/responses
+ * @desc    Obtener reporte completo de respuestas de un docente
+ * @param   teacherId - ID del docente
+ * @query   periodo?: '2025-1'
+ * @access  Private (Admin)
+ */
+router.get(
+  '/reports/teachers/:teacherId/responses',
+  AdminController.getTeacherResponsesReport
+);
+
+/**
+ * @route   GET /api/admin/reports/teachers/:teacherId/questions/:questionId/detail
+ * @desc    Obtener detalle de respuestas de una pregunta específica
+ * @param   teacherId - ID del docente
+ * @param   questionId - ID de la pregunta
+ * @query   periodo?: '2025-1'
+ * @access  Private (Admin)
+ */
+router.get(
+  '/reports/teachers/:teacherId/questions/:questionId/detail',
+  AdminController.getQuestionResponsesDetail
+);
+
+/**
+ * @route   GET /api/admin/reports/teachers/:teacherId/categories
+ * @desc    Obtener estadísticas de respuestas por categoría
+ * @param   teacherId - ID del docente
+ * @query   periodo?: '2025-1'
+ * @access  Private (Admin)
+ */
+router.get(
+  '/reports/teachers/:teacherId/categories',
+  AdminController.getCategoryStatistics
+);
+
 export default router;

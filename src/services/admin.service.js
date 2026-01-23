@@ -2,10 +2,12 @@
  * Servicio de Administración - REFACTORIZADO
  * Orquesta todos los servicios especializados
  * 
+ * Ubicación: src/services/admin.service.js
+ * 
  * Estructura:
  * - Sincronización: student-sync, teacher-sync, evaluation-sync
  * - Analytics: teacher-analytics
- * - Reportes: dashboard
+ * - Reportes: dashboard, teacher-report
  * - Logs: sync-base
  */
 
@@ -15,6 +17,7 @@ import { EvaluationSyncService } from './admin/sync/evaluation-sync.service.js';
 import { SyncBaseService } from './admin/sync/sync-base.service.js';
 import { DashboardService } from './admin/reports/dashboard.service.js';
 import { TeacherAnalyticsService } from './admin/analytics/teacher-analytics.service.js';
+import { TeacherReportService } from './admin/reports/teacher-report.service.js';
 
 /**
  * Clase principal AdminService
@@ -138,6 +141,41 @@ export class AdminService {
    */
   static async getAnalysisStats(filters = {}) {
     return await TeacherAnalyticsService.getAnalysisStats(filters);
+  }
+
+  // ==========================================
+  // 🆕 REPORTES DE DOCENTES - RESPUESTAS
+  // ==========================================
+
+  /**
+   * Obtener reporte completo de respuestas de un docente
+   * @param {number} teacherId - ID del docente
+   * @param {string} periodo - Periodo académico
+   * @returns {Object} Reporte de respuestas
+   */
+  static async getTeacherResponsesReport(teacherId, periodo) {
+    return await TeacherReportService.getTeacherResponsesReport(teacherId, periodo);
+  }
+
+  /**
+   * Obtener detalle de respuestas de una pregunta específica
+   * @param {number} teacherId - ID del docente
+   * @param {number} questionId - ID de la pregunta
+   * @param {string} periodo - Periodo académico
+   * @returns {Object} Detalle de respuestas
+   */
+  static async getQuestionResponsesDetail(teacherId, questionId, periodo) {
+    return await TeacherReportService.getQuestionResponsesDetail(teacherId, questionId, periodo);
+  }
+
+  /**
+   * Obtener estadísticas por categoría
+   * @param {number} teacherId - ID del docente
+   * @param {string} periodo - Periodo académico
+   * @returns {Object} Estadísticas por categoría
+   */
+  static async getCategoryStatistics(teacherId, periodo) {
+    return await TeacherReportService.getCategoryStatistics(teacherId, periodo);
   }
 }
 

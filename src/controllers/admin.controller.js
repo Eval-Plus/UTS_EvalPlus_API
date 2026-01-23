@@ -453,4 +453,108 @@ export class AdminController {
       );
     }
   }
+
+  // ==========================================
+  // REPORTES DE DOCENTES - RESPUESTAS
+  // ==========================================
+
+  /**
+   * GET /api/admin/reports/teachers/:teacherId/responses
+   * Obtener reporte completo de respuestas de un docente
+   */
+  static async getTeacherResponsesReport(req, res) {
+    try {
+      const { teacherId } = req.params;
+      const { periodo } = req.query;
+
+      const report = await AdminService.getTeacherResponsesReport(
+        parseInt(teacherId),
+        periodo
+      );
+
+      return successResponse(
+        res,
+        report,
+        'Reporte de respuestas obtenido exitosamente',
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      console.error('Error en getTeacherResponsesReport:', error);
+      
+      if (error.message.includes('no encontrado')) {
+        return errorResponse(
+          res,
+          error.message,
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      return errorResponse(
+        res,
+        'Error al obtener reporte de respuestas del docente',
+        HTTP_STATUS.INTERNAL_ERROR
+      );
+    }
+  }
+
+  /**
+   * GET /api/admin/reports/teachers/:teacherId/questions/:questionId/detail
+   * Obtener detalle de respuestas de una pregunta específica
+   */
+  static async getQuestionResponsesDetail(req, res) {
+    try {
+      const { teacherId, questionId } = req.params;
+      const { periodo } = req.query;
+
+      const detail = await AdminService.getQuestionResponsesDetail(
+        parseInt(teacherId),
+        parseInt(questionId),
+        periodo
+      );
+
+      return successResponse(
+        res,
+        detail,
+        'Detalle de pregunta obtenido exitosamente',
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      console.error('Error en getQuestionResponsesDetail:', error);
+      return errorResponse(
+        res,
+        'Error al obtener detalle de respuestas de la pregunta',
+        HTTP_STATUS.INTERNAL_ERROR
+      );
+    }
+  }
+
+  /**
+   * GET /api/admin/reports/teachers/:teacherId/categories
+   * Obtener estadísticas por categoría
+   */
+  static async getCategoryStatistics(req, res) {
+    try {
+      const { teacherId } = req.params;
+      const { periodo } = req.query;
+
+      const stats = await AdminService.getCategoryStatistics(
+        parseInt(teacherId),
+        periodo
+      );
+
+      return successResponse(
+        res,
+        stats,
+        'Estadísticas por categoría obtenidas exitosamente',
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      console.error('Error en getCategoryStatistics:', error);
+      return errorResponse(
+        res,
+        'Error al obtener estadísticas por categoría',
+        HTTP_STATUS.INTERNAL_ERROR
+      );
+    }
+  }
 }
