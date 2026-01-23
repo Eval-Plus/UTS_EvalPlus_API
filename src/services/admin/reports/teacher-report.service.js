@@ -6,7 +6,6 @@
  */
 
 import prisma from '../../../config/prisma.js';
-import { ResponseModel } from '../../../models/response.model.js';
 
 export class TeacherReportService {
   /**
@@ -17,7 +16,7 @@ export class TeacherReportService {
    */
   static async getTeacherResponsesReport(teacherId, periodo = null) {
     try {
-      // 1. Obtener todas las evaluaciones del docente
+      // 1. Obtener todas las evaluaciones del docente (activas)
       const whereClause = {
         teacherId: parseInt(teacherId),
         activo: true,
@@ -36,13 +35,6 @@ export class TeacherReportService {
                 where: { activo: true },
                 orderBy: { orden: 'asc' },
               },
-            },
-          },
-          subject: {
-            select: {
-              id: true,
-              nombre: true,
-              codigo: true,
             },
           },
           studentResponses: {
@@ -78,18 +70,31 @@ export class TeacherReportService {
           completionRate: 0,
           averageScore: 0,
           questions: [],
-          subjects: [],
         };
       }
 
-      // 2. Procesar datos de evaluaciones
-      const allStudentEvaluations = evaluations.flatMap(evaluation => evaluation.studentResponses);
-      const completedEvaluations = allStudentEvaluations.filter(se => se.completada);
-      const totalEvaluations = allStudentEvaluations.length;
+      // 2. Calcular estadísticas de evaluaciones
+      // Total de evaluaciones = evaluaciones con al menos 1 student response completada
+      const evaluationsWithResponses = evaluations.filter(
+        evaluation => evaluation.studentResponses.length > 0
+      );
+      
+      // Evaluaciones completadas = evaluaciones con student responses completadas
+      const completedEvaluations = evaluations.filter(
+        evaluation => evaluation.studentResponses.some(se => se.completada)
+      );
+      
+      // Evaluaciones pendientes = evaluaciones sin ningún student response
+      const pendingEvaluations = evaluations.filter(
+        evaluation => evaluation.studentResponses.length === 0
+      );
+
+      const totalEvaluations = evaluations.length;
       const completedCount = completedEvaluations.length;
-      const pendingCount = totalEvaluations - completedCount;
+      const pendingCount = pendingEvaluations.length;
+      
       const completionRate = totalEvaluations > 0 
-        ? (completedCount / totalEvaluations) * 100 
+        ? ((completedCount / totalEvaluations) * 100)
         : 0;
 
       // 3. Obtener plantilla de preguntas (usar la primera evaluación como referencia)
@@ -97,9 +102,14 @@ export class TeacherReportService {
       const questions = template.questions;
 
       // 4. Procesar respuestas por pregunta
+      // Solo considerar student evaluations completadas
+      const allCompletedStudentEvaluations = evaluations.flatMap(
+        evaluation => evaluation.studentResponses.filter(se => se.completada)
+      );
+
       const questionsReport = questions.map(question => {
         // Obtener todas las respuestas para esta pregunta de evaluaciones completadas
-        const questionResponses = completedEvaluations.flatMap(se => 
+        const questionResponses = allCompletedStudentEvaluations.flatMap(se => 
           se.responses.filter(r => r.question.id === question.id)
         );
 
@@ -140,20 +150,7 @@ export class TeacherReportService {
         ? questionsReport.reduce((sum, q) => sum + q.average, 0) / questionsReport.length
         : 0;
 
-      // 6. Obtener información de materias
-      const subjectsData = evaluations.map(evaluation => ({
-        id: evaluation.subject.id,
-        name: evaluation.subject.nombre,
-        code: evaluation.subject.codigo,
-        totalStudents: evaluation.studentResponses.length,
-        completedStudents: evaluation.studentResponses.filter(se => se.completada).length,
-        pendingStudents: evaluation.studentResponses.filter(se => !se.completada).length,
-        completionRate: evaluation.studentResponses.length > 0
-          ? (evaluation.studentResponses.filter(se => se.completada).length / evaluation.studentResponses.length) * 100
-          : 0,
-      }));
-
-      // 7. Retornar reporte completo
+      // 6. Retornar reporte completo (SIN subjects)
       return {
         teacherId,
         periodo,
@@ -163,7 +160,6 @@ export class TeacherReportService {
         completionRate: parseFloat(completionRate.toFixed(2)),
         averageScore: parseFloat(totalAverage.toFixed(2)),
         questions: questionsReport,
-        subjects: subjectsData,
       };
 
     } catch (error) {
