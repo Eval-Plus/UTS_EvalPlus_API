@@ -11,7 +11,7 @@ passport.use(
       clientID: process.env.MICROSOFT_CLIENT_ID,
       clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
       callbackURL: process.env.MICROSOFT_REDIRECT_URI,
-      tenant: 'common',
+      tenant: 'common', // (Si consigo acceso al tenant UTS, actualizar para usar Enviroment)
       scope: ['user.read', 'profile', 'email', 'openid'],
       passReqToCallback: false
     },
