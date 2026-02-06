@@ -161,4 +161,16 @@ router.get(
   AdminController.getCategoryStatistics
 );
 
+/**
+ * @route   GET /api/admin/reports/teachers/:teacherId/comments
+ * @desc    Obtener todos los comentarios anónimos de un docente
+ * @param   teacherId - ID del docente
+ * @query   periodo?: '2025-1'
+ * @access  Private (Admin)
+ */
+router.get(
+  '/reports/teachers/:teacherId/comments',
+  AdminController.getTeacherComments
+);
+
 export default router;

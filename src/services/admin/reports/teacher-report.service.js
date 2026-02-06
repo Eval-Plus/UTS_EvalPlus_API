@@ -313,6 +313,69 @@ export class TeacherReportService {
       throw new Error('Error al obtener estadísticas por categoría');
     }
   }
+
+  /**
+   * Obtiene todos los comentarios anónimos de un docente
+   * @param {number} teacherId - ID del docente
+   * @param {string} periodo - Periodo académico (opcional)
+   * @returns {Array} Lista de comentarios con sentimiento
+   */
+  static async getTeacherComments(teacherId, periodo = null) {
+    try {
+      const whereClause = {
+        teacherId: parseInt(teacherId),
+        activo: true,
+      };
+
+      if (periodo) {
+        whereClause.periodo = periodo;
+      }
+
+      // Obtener todas las evaluaciones del docente con comentarios
+      const evaluations = await prisma.evaluation.findMany({
+        where: whereClause,
+        include: {
+          studentResponses: {
+            where: {
+              completada: true,
+              comentario: { not: null },
+            },
+            select: {
+              id: true,
+              comentario: true,
+              sentiment: true,
+              sentimentScore: true,
+              sentimentAnalyzedAt: true,
+              fechaCompleta: true,
+            },
+          },
+        },
+      });
+
+      // Aplanar todos los comentarios de todas las evaluaciones
+      const allComments = evaluations.flatMap(evaluation =>
+        evaluation.studentResponses
+          .filter(response => response.comentario && response.comentario.trim().length > 0)
+          .map(response => ({
+            id: response.id,
+            text: response.comentario,
+            sentiment: response.sentiment || 'neutral',
+            sentimentScore: response.sentimentScore,
+            analyzedAt: response.sentimentAnalyzedAt,
+            completedAt: response.fechaCompleta,
+          }))
+      );
+
+      // Ordenar por fecha de completado (más recientes primero)
+      allComments.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+
+      return allComments;
+
+    } catch (error) {
+      console.error('Error en getTeacherComments:', error);
+      throw new Error('Error al obtener comentarios del docente');
+    }
+  }
 }
 
 export default TeacherReportService;

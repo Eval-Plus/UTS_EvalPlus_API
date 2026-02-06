@@ -557,4 +557,43 @@ export class AdminController {
       );
     }
   }
+
+  /**
+   * GET /api/admin/reports/teachers/:teacherId/comments
+   * Obtener todos los comentarios anónimos de un docente
+   */
+  static async getTeacherComments(req, res) {
+    try {
+      const { teacherId } = req.params;
+      const { periodo } = req.query;
+
+      const comments = await AdminService.getTeacherComments(
+        parseInt(teacherId),
+        periodo
+      );
+
+      return successResponse(
+        res,
+        comments,
+        'Comentarios del docente obtenidos exitosamente',
+        HTTP_STATUS.OK
+      );
+    } catch (error) {
+      console.error('Error en getTeacherComments:', error);
+      
+      if (error.message.includes('no encontrado')) {
+        return errorResponse(
+          res,
+          error.message,
+          HTTP_STATUS.NOT_FOUND
+        );
+      }
+
+      return errorResponse(
+        res,
+        'Error al obtener comentarios del docente',
+        HTTP_STATUS.INTERNAL_ERROR
+      );
+    }
+  }
 }

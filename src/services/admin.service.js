@@ -177,6 +177,32 @@ export class AdminService {
   static async getCategoryStatistics(teacherId, periodo) {
     return await TeacherReportService.getCategoryStatistics(teacherId, periodo);
   }
+
+  /**
+   * Obtiene todos los comentarios anónimos de un docente
+   * @param {number} teacherId - ID del docente
+   * @param {string} periodo - Periodo académico (opcional)
+   * @returns {Array} Lista de comentarios
+   */
+  static async getTeacherComments(teacherId, periodo = null) {
+    try {
+      logger.info(`Obteniendo comentarios del docente ${teacherId}`);
+
+      const comments = await TeacherReportService.getTeacherComments(
+        teacherId,
+        periodo
+      );
+
+      logger.success(`${comments.length} comentarios obtenidos para docente ${teacherId}`);
+      return comments;
+    } catch (error) {
+      logger.error('Error obteniendo comentarios del docente', error);
+      throw error;
+    }
+  }
+
 }
+
+
 
 export default AdminService;
