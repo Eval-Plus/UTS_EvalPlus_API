@@ -185,24 +185,8 @@ export class AdminService {
    * @returns {Array} Lista de comentarios
    */
   static async getTeacherComments(teacherId, periodo = null) {
-    try {
-      logger.info(`Obteniendo comentarios del docente ${teacherId}`);
-
-      const comments = await TeacherReportService.getTeacherComments(
-        teacherId,
-        periodo
-      );
-
-      logger.success(`${comments.length} comentarios obtenidos para docente ${teacherId}`);
-      return comments;
-    } catch (error) {
-      logger.error('Error obteniendo comentarios del docente', error);
-      throw error;
-    }
+    return await TeacherReportService.getTeacherComments(teacherId, periodo);
   }
-
 }
-
-
 
 export default AdminService;
