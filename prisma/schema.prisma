@@ -43,6 +43,9 @@ model User {
   
   // 🆕 FASE: Relación con logs de sincronización
   syncLogs          SyncLog[]
+
+  // New Relación con análisis de IA
+  aiAnalyses AIAnalysis[] @relation("TeacherAIAnalysis")
   
   @@map("users")
 }
@@ -289,4 +292,48 @@ model SyncLog {
   @@index([tipo, periodo])
   @@index([adminId])
   @@map("sync_logs")
+}
+
+// ==========================================
+// 🆕 MÓDULO DE ANÁLISIS DE IA
+// ==========================================
+
+/// Análisis de IA generado para docentes
+model AIAnalysis {
+  id          Int      @id @default(autoincrement())
+  teacherId   Int      @map("teacher_id")
+  periodo     String   @db.VarChar(50)
+  
+  // Perfil del docente
+  profile     String   @db.Text
+  
+  // Fortalezas (JSON array de strings)
+  strengths   Json
+  
+  // Oportunidades de mejora (JSON array de strings)
+  improvements Json
+  
+  // Recomendaciones (JSON array de strings)
+  recommendations Json
+  
+  // Metadata del análisis
+  analysisDate    DateTime  @default(now()) @map("analysis_date")
+  modelVersion    String    @default("meta-llama/Llama-3.2-3B-Instruct") @map("model_version") @db.VarChar(100)
+  
+  // Datos usados en el análisis
+  evaluationsCount Int      @map("evaluations_count")
+  responsesCount   Int      @map("responses_count")
+  averageScore     Float    @map("average_score")
+  
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  // Relación con el docente
+  teacher User @relation("TeacherAIAnalysis", fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  // Un docente solo puede tener un análisis por período
+  @@unique([teacherId, periodo])
+  @@index([teacherId])
+  @@index([periodo])
+  @@map("ai_analyses")
 }
