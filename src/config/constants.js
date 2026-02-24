@@ -15,7 +15,7 @@ export const TEACHER_EMAIL_KEYWORDS = ['profesor', 'teacher', 'docente'];
 // Palabras clave para detectar administradores en emails
 export const ADMIN_EMAIL_KEYWORDS = ['admin', 'administrador', 'administrator', 'director', 'coordinador'];
 
-// 🆕 Tipos de sentimiento
+// Tipos de sentimiento
 export const SENTIMENT_TYPES = {
   POSITIVE: 'positive',
   NEGATIVE: 'negative',
@@ -23,30 +23,50 @@ export const SENTIMENT_TYPES = {
   MIXED: 'mixed'
 };
 
-// 🆕 Umbrales de puntuación de sentimiento
+// Umbrales de puntuación de sentimiento
 export const SENTIMENT_THRESHOLDS = {
   HIGH_CONFIDENCE: 0.8,      // Confianza alta
   MEDIUM_CONFIDENCE: 0.6,    // Confianza media
   LOW_CONFIDENCE: 0.4        // Confianza baja
 };
 
-// 🆕 Configuración del modelo de IA (Hugging Face)
+// Configuración del modelo de generación de texto (LLaMA vía Hugging Face)
+export const AI_GENERATION_CONFIG = {
+  MODEL_NAME: 'meta-llama/Llama-3.2-3B-Instruct:hyperbolic',
+  BASE_URL: 'https://router.huggingface.co/v1',
+
+  REQUEST_TIMEOUT: 60000, // 60 segundos (generación es más lenta)
+  MAX_RETRIES: 2,
+  RETRY_DELAY: 3000,
+
+  MAX_TOKENS: 1500,
+  TEMPERATURE: 0.7,
+
+  // Umbrales para clasificar el promedio general del docente
+  SCORE_THRESHOLDS: {
+    EXCELLENT: 4.5,
+    GOOD: 3.5,
+    AVERAGE: 2.5,
+  },
+};
+
+// Configuración del modelo de IA (Hugging Face)
 export const AI_CONFIG = {
   // Modelo de análisis de sentimiento en español (Hugging Face)
   MODEL_NAME: 'nlptown/bert-base-multilingual-uncased-sentiment',
-  
+
   // API de Hugging Face (URL actualizada - Enero 2026)
   API_URL: 'https://router.huggingface.co/models/nlptown/bert-base-multilingual-uncased-sentiment',
-  
+
   // Timeouts y reintentos
   REQUEST_TIMEOUT: 30000, // 30 segundos
   MAX_RETRIES: 3,
   RETRY_DELAY: 2000, // 2 segundos entre reintentos
-  
+
   // Configuración de procesamiento
   MAX_COMMENT_LENGTH: 512, // Máximo de caracteres
   MIN_COMMENT_LENGTH: 5,   // Mínimo de caracteres para analizar
-  
+
   // Mapeo de labels del modelo nlptown a nuestros tipos
   // Este modelo retorna: "1 star", "2 stars", "3 stars", "4 stars", "5 stars"
   LABEL_MAPPING: {
@@ -56,7 +76,7 @@ export const AI_CONFIG = {
     '4 stars': SENTIMENT_TYPES.POSITIVE,  // Positivo
     '5 stars': SENTIMENT_TYPES.POSITIVE,  // Muy positivo
   },
-  
+
   // Palabras clave para detección rápida (fallback)
   POSITIVE_KEYWORDS: [
     'excelente', 'muy bueno', 'genial', 'increíble', 'fantástico',
@@ -70,7 +90,7 @@ export const AI_CONFIG = {
     'no recomiendo', 'peor profesor', 'perdida de tiempo',
     'no aprendí', 'desorganizado'
   ],
-  
+
   // Configuración de batch processing
   BATCH_SIZE: 10, // Procesar 10 comentarios a la vez
   BATCH_DELAY: 1000, // 1 segundo entre lotes
@@ -134,7 +154,7 @@ export const MESSAGES = {
     NOT_ENROLLED: 'El estudiante no está inscrito'
   },
 
-  // 🆕 Sentimientos
+  // Sentimientos
   SENTIMENT: {
     ANALYZED: 'Análisis de sentimiento completado',
     UPDATED: 'Sentimiento actualizado exitosamente',
@@ -147,6 +167,15 @@ export const MESSAGES = {
     MODEL_READY: 'API de Hugging Face lista',
     API_ERROR: 'Error comunicándose con la API de Hugging Face',
     RATE_LIMIT: 'Límite de solicitudes alcanzado, intenta más tarde'
+  },
+
+  AI_ANALYSIS: {
+    GENERATED: 'Análisis de IA generado exitosamente',
+    RETRIEVED: 'Análisis de IA obtenido exitosamente',
+    NOT_FOUND: 'No se encontró análisis de IA para este docente en el período',
+    GENERATION_FAILED: 'Error al generar el análisis de IA',
+    NO_DATA: 'El docente no tiene suficientes datos para generar un análisis',
+    GENERATING: 'Generando análisis de IA...',
   },
 
   // Permisos
@@ -197,6 +226,7 @@ export default {
   ADMIN_EMAIL_KEYWORDS,
   SENTIMENT_TYPES,
   SENTIMENT_THRESHOLDS,
+  AI_GENERATION_CONFIG,
   AI_CONFIG,
   AUTO_ASSIGNMENT,
   PROFILE_STATUS,

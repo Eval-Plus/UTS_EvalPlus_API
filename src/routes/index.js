@@ -13,6 +13,7 @@ import evaluationRoutes from './evaluation.routes.js';
 import studentevaluationRoutes from './student-evaluation.routes.js';
 import adminRoutes from './admin.routes.js';
 import sentimentRoutes from './sentiment.routes.js';
+import aiAnalysisRoutes from './ai-analysis.routes.js';
 
 const router = Router();
 
@@ -28,6 +29,7 @@ router.use('/evaluations', evaluationRoutes);
 router.use('/student-evaluations', studentevaluationRoutes);
 router.use('/admin', adminRoutes);
 router.use('/sentiment', sentimentRoutes);
+router.use('/admin/ai-analysis', aiAnalysisRoutes);
 
 /**
  * Ruta de health check
