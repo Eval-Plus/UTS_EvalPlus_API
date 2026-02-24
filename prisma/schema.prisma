@@ -335,5 +335,5 @@ model AIAnalysis {
   @@unique([teacherId, periodo])
   @@index([teacherId])
   @@index([periodo])
-  @@map("ai_analyses")
+  @@map("ai_analysis")
 }
