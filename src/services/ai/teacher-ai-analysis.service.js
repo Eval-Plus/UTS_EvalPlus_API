@@ -6,7 +6,7 @@
  * 1. Obtiene datos del docente (respuestas + comentarios) reutilizando TeacherReportService
  * 2. Construye el prompt con esa información
  * 3. Llama al modelo LLaMA
- * 4. Parsea la respuesta JSON
+ * 4. Parsea la respuesta JSON de forma robusta
  * 5. Guarda/actualiza en la tabla ai_analysis
  */
 
@@ -25,32 +25,36 @@ export class TeacherAIAnalysisService {
   // ─────────────────────────────────────────
 
   /**
-   * Prompt de sistema: define el rol y el formato de salida esperado
+   * Prompt de sistema: define el rol y el formato de salida esperado.
+   * Se usa un formato estricto con delimitadores para facilitar la extracción
+   * incluso cuando el modelo añade texto extra antes o después del JSON.
    */
   static buildSystemPrompt() {
-    return `Eres un experto en evaluación docente universitaria con amplia experiencia en pedagogía y análisis de desempeño académico. 
-Tu tarea es analizar los datos de evaluación de un docente y generar un informe estructurado, objetivo y constructivo.
+    return `Eres un experto en evaluación docente universitaria. Analiza los datos y genera un informe estructurado.
 
-REGLAS ESTRICTAS:
-- Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional antes ni después.
-- No uses markdown, no uses bloques de código, solo el JSON puro.
-- Todos los textos deben estar en español.
-- Sé específico, constructivo y basado en los datos proporcionados.
-- El perfil debe ser un párrafo descriptivo de 2-3 oraciones.
-- Cada lista debe tener entre 2 y 4 elementos.
-- Las recomendaciones deben ser accionables y concretas.
+REGLAS CRÍTICAS:
+1. Responde SOLO con el bloque JSON entre los marcadores ---JSON_START--- y ---JSON_END---.
+2. No escribas NADA antes de ---JSON_START--- ni después de ---JSON_END---.
+3. Todos los textos deben estar en español.
+4. Usa comillas dobles para strings en el JSON.
+5. Los campos "strengths", "improvements" y "recommendations" DEBEN ser arrays de strings.
+6. "responsesComment" y "commentsComment" deben ser strings (párrafos cortos).
 
-FORMATO DE RESPUESTA (JSON exacto):
+FORMATO EXACTO:
+---JSON_START---
 {
-  "profile": "descripción del perfil del docente basada en los datos",
-  "strengths": ["fortaleza 1", "fortaleza 2", "fortaleza 3"],
-  "improvements": ["área de mejora 1", "área de mejora 2"],
-  "recommendations": ["recomendación concreta 1", "recomendación concreta 2", "recomendación concreta 3"]
-}`;
+  "profile": "Párrafo descriptivo de 2-3 oraciones sobre el docente.",
+  "strengths": ["Fortaleza 1", "Fortaleza 2", "Fortaleza 3"],
+  "improvements": ["Área de mejora 1", "Área de mejora 2"],
+  "recommendations": ["Recomendación concreta 1", "Recomendación concreta 2", "Recomendación concreta 3"],
+  "responsesComment": "Párrafo breve analizando las respuestas cuantitativas.",
+  "commentsComment": "Párrafo breve analizando los comentarios cualitativos de los estudiantes."
+}
+---JSON_END---`;
   }
 
   /**
-   * Prompt de usuario: incluye todos los datos del docente
+   * Prompt de usuario: incluye todos los datos del docente.
    */
   static buildUserPrompt(teacherData) {
     const {
@@ -65,7 +69,9 @@ FORMATO DE RESPUESTA (JSON exacto):
     } = teacherData;
 
     const categoriesText = categoriesData
-      .map(cat => `  - ${cat.category}: promedio ${cat.averageScore}/5.0 (${cat.questionsCount} preguntas, ${cat.totalResponses} respuestas)`)
+      .map(cat =>
+        `  - ${cat.category}: promedio ${cat.averageScore}/5.0 (${cat.questionsCount} preguntas, ${cat.totalResponses} respuestas)`
+      )
       .join('\n');
 
     const commentsText = commentsSummary.total > 0
@@ -78,7 +84,7 @@ FORMATO DE RESPUESTA (JSON exacto):
   Muestra de comentarios negativos: ${commentsSummary.sampleNegative.join(' | ') || 'Ninguno'}`
       : 'No se recibieron comentarios en este período.';
 
-    return `Analiza el siguiente docente y genera el informe en el formato JSON especificado:
+    return `Analiza el siguiente docente y genera el informe en el formato especificado.
 
 DOCENTE: ${teacherName}
 PERÍODO: ${periodo}
@@ -95,7 +101,7 @@ ${categoriesText}
 ANÁLISIS DE COMENTARIOS ESTUDIANTILES:
 ${commentsText}
 
-Genera el análisis JSON ahora:`;
+Responde usando el formato con ---JSON_START--- y ---JSON_END---.`;
   }
 
   // ─────────────────────────────────────────
@@ -103,37 +109,37 @@ Genera el análisis JSON ahora:`;
   // ─────────────────────────────────────────
 
   /**
-   * Recopila y estructura todos los datos del docente necesarios para el prompt
+   * Recopila y estructura todos los datos del docente necesarios para el prompt.
    */
   static async gatherTeacherData(teacherId, periodo, teacherName) {
     logger.info(`Recopilando datos del docente ${teacherId} para período ${periodo}`);
 
-    // Reutilizamos los servicios ya existentes
     const [responsesReport, categoriesReport, comments] = await Promise.all([
       TeacherReportService.getTeacherResponsesReport(teacherId, periodo),
       TeacherReportService.getCategoryStatistics(teacherId, periodo),
       TeacherReportService.getTeacherComments(teacherId, periodo),
     ]);
 
-    // Procesar comentarios para el resumen
     const commentsSummary = this.summarizeComments(comments);
 
     return {
       teacherName,
       periodo,
-      totalEvaluations: responsesReport.totalEvaluations,
+      totalEvaluations:     responsesReport.totalEvaluations,
       completedEvaluations: responsesReport.completedEvaluations,
-      completionRate: responsesReport.completionRate,
-      averageScore: responsesReport.averageScore,
-      categoriesData: categoriesReport.categories,
+      completionRate:       responsesReport.completionRate,
+      averageScore:         responsesReport.averageScore,
+      categoriesData:       categoriesReport.categories,
       commentsSummary,
       // Metadata para guardar en DB
-      responsesCount: responsesReport.questions.reduce((sum, q) => sum + q.totalResponses, 0),
+      responsesCount: responsesReport.questions.reduce(
+        (sum, q) => sum + q.totalResponses, 0
+      ),
     };
   }
 
   /**
-   * Genera un resumen de comentarios para el prompt
+   * Genera un resumen de comentarios para el prompt.
    */
   static summarizeComments(comments) {
     const total = comments.length;
@@ -141,12 +147,8 @@ Genera el análisis JSON ahora:`;
     if (total === 0) {
       return {
         total: 0,
-        positive: 0,
-        neutral: 0,
-        negative: 0,
-        positivePercent: 0,
-        neutralPercent: 0,
-        negativePercent: 0,
+        positive: 0, neutral: 0, negative: 0,
+        positivePercent: 0, neutralPercent: 0, negativePercent: 0,
         samplePositive: [],
         sampleNegative: [],
       };
@@ -154,9 +156,8 @@ Genera el análisis JSON ahora:`;
 
     const positive = comments.filter(c => c.sentiment === 'positive').length;
     const negative = comments.filter(c => c.sentiment === 'negative').length;
-    const neutral = total - positive - negative;
+    const neutral  = total - positive - negative;
 
-    // Tomar muestras representativas (máx 3 por tipo, truncadas a 100 chars)
     const samplePositive = comments
       .filter(c => c.sentiment === 'positive')
       .slice(0, 3)
@@ -169,11 +170,9 @@ Genera el análisis JSON ahora:`;
 
     return {
       total,
-      positive,
-      neutral,
-      negative,
+      positive, neutral, negative,
       positivePercent: parseFloat(((positive / total) * 100).toFixed(1)),
-      neutralPercent: parseFloat(((neutral / total) * 100).toFixed(1)),
+      neutralPercent:  parseFloat(((neutral  / total) * 100).toFixed(1)),
       negativePercent: parseFloat(((negative / total) * 100).toFixed(1)),
       samplePositive,
       sampleNegative,
@@ -185,53 +184,129 @@ Genera el análisis JSON ahora:`;
   // ─────────────────────────────────────────
 
   /**
-   * Extrae y valida el JSON de la respuesta del modelo
+   * Extrae y valida el JSON de la respuesta del modelo.
+   *
+   * Estrategia de extracción (en orden de prioridad):
+   * 1. Buscar entre los marcadores ---JSON_START--- / ---JSON_END---
+   * 2. Buscar entre bloques de código markdown ```json ... ```
+   * 3. Extraer el primer objeto JSON completo de la respuesta
    */
   static parseModelResponse(rawText) {
-    // Limpiar posible markdown residual
-    let cleaned = rawText
-      .replace(/```json/gi, '')
-      .replace(/```/g, '')
-      .trim();
+    let jsonString = null;
 
-    // Buscar el primer { y el último } para extraer solo el JSON
-    const start = cleaned.indexOf('{');
-    const end = cleaned.lastIndexOf('}');
-
-    if (start === -1 || end === -1) {
-      throw new Error('El modelo no retornó un JSON válido');
+    // ── Estrategia 1: marcadores explícitos ──
+    const markerMatch = rawText.match(
+      /---JSON_START---\s*([\s\S]*?)\s*---JSON_END---/
+    );
+    if (markerMatch) {
+      jsonString = markerMatch[1].trim();
+      logger.info('JSON extraído con marcadores explícitos');
     }
 
-    cleaned = cleaned.substring(start, end + 1);
+    // ── Estrategia 2: bloque markdown ```json ──
+    if (!jsonString) {
+      const mdMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (mdMatch) {
+        jsonString = mdMatch[1].trim();
+        logger.info('JSON extraído de bloque markdown');
+      }
+    }
 
+    // ── Estrategia 3: primer { ... } del texto ──
+    if (!jsonString) {
+      const start = rawText.indexOf('{');
+      const end   = rawText.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && end > start) {
+        jsonString = rawText.substring(start, end + 1).trim();
+        logger.info('JSON extraído por búsqueda de llaves');
+      }
+    }
+
+    if (!jsonString) {
+      logger.error('Respuesta raw del modelo:', rawText.substring(0, 500));
+      throw new Error('El modelo no retornó un JSON reconocible. Intenta regenerar.');
+    }
+
+    // ── Parseo ──
     let parsed;
     try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      throw new Error(`JSON malformado en respuesta del modelo: ${cleaned.substring(0, 100)}`);
+      parsed = JSON.parse(jsonString);
+    } catch (parseError) {
+      // Intento de reparación básica: reemplazar comillas simples por dobles
+      try {
+        const repaired = jsonString.replace(/'/g, '"');
+        parsed = JSON.parse(repaired);
+        logger.warn('JSON reparado (comillas simples → dobles)');
+      } catch {
+        logger.error('JSON malformado:', jsonString.substring(0, 300));
+        throw new Error(`JSON malformado en respuesta del modelo: ${parseError.message}`);
+      }
     }
 
-    // Validar campos requeridos
+    // ── Validación de campos requeridos ──
     const requiredFields = ['profile', 'strengths', 'improvements', 'recommendations'];
     for (const field of requiredFields) {
-      if (!parsed[field]) {
-        throw new Error(`Campo requerido faltante en respuesta del modelo: ${field}`);
+      if (parsed[field] === undefined || parsed[field] === null) {
+        throw new Error(`Campo requerido faltante en respuesta del modelo: "${field}"`);
       }
     }
 
-    // Validar que las listas sean arrays no vacíos
-    for (const listField of ['strengths', 'improvements', 'recommendations']) {
-      if (!Array.isArray(parsed[listField]) || parsed[listField].length === 0) {
-        throw new Error(`El campo '${listField}' debe ser un array no vacío`);
+    // ── Normalización de arrays ──
+    // El modelo a veces retorna strings con saltos en lugar de arrays
+    const arrayFields = ['strengths', 'improvements', 'recommendations'];
+    for (const field of arrayFields) {
+      parsed[field] = this._normalizeToArray(parsed[field], field);
+      if (parsed[field].length === 0) {
+        throw new Error(`El campo "${field}" resultó vacío tras normalizar. Intenta regenerar.`);
       }
+    }
+
+    // ── Normalización de strings ──
+    const stringFields = ['profile', 'responsesComment', 'commentsComment'];
+    for (const field of stringFields) {
+      parsed[field] = this._normalizeToString(parsed[field]);
     }
 
     return {
-      profile: String(parsed.profile).trim(),
-      strengths: parsed.strengths.map(s => String(s).trim()),
-      improvements: parsed.improvements.map(s => String(s).trim()),
-      recommendations: parsed.recommendations.map(s => String(s).trim()),
+      profile:          parsed.profile,
+      strengths:        parsed.strengths,
+      improvements:     parsed.improvements,
+      recommendations:  parsed.recommendations,
+      responsesComment: parsed.responsesComment,
+      commentsComment:  parsed.commentsComment,
     };
+  }
+
+  /**
+   * Convierte un valor a array de strings no vacío.
+   * Maneja los casos donde el modelo retorna un string con viñetas o saltos de línea.
+   */
+  static _normalizeToArray(value, fieldName) {
+    if (Array.isArray(value)) {
+      return value
+        .map(item => String(item).trim())
+        .filter(item => item.length > 0);
+    }
+
+    if (typeof value === 'string' && value.trim().length > 0) {
+      logger.warn(`Campo "${fieldName}" es string, convirtiendo a array`);
+      // Separar por saltos de línea, guiones o puntos al inicio de línea
+      return value
+        .split(/\n|(?:^|\n)\s*[-•*]\s*/m)
+        .map(line => line.replace(/^[-•*\d.)\s]+/, '').trim())
+        .filter(line => line.length > 3);
+    }
+
+    return [];
+  }
+
+  /**
+   * Convierte un valor a string limpio. Retorna '' si no existe.
+   */
+  static _normalizeToString(value) {
+    if (typeof value === 'string') return value.trim();
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
   }
 
   // ─────────────────────────────────────────
@@ -239,10 +314,10 @@ Genera el análisis JSON ahora:`;
   // ─────────────────────────────────────────
 
   /**
-   * Genera (o regenera) el análisis de IA para un docente
+   * Genera (o regenera) el análisis de IA para un docente.
    *
-   * @param {number} teacherId - ID del docente
-   * @param {string} periodo - Período académico (ej: '2025-1')
+   * @param {number} teacherId  - ID del docente
+   * @param {string} periodo    - Período académico (ej: '2025-1')
    * @param {string} teacherName - Nombre del docente (para el prompt)
    * @returns {Promise<Object>} Análisis guardado en DB
    */
@@ -267,13 +342,13 @@ Genera el análisis JSON ahora:`;
 
     // 2. Construir prompts
     const systemPrompt = this.buildSystemPrompt();
-    const userPrompt = this.buildUserPrompt(teacherData);
+    const userPrompt   = this.buildUserPrompt(teacherData);
 
     // 3. Llamar al modelo LLaMA
     logger.info('Enviando datos al modelo LLaMA...');
     const rawResponse = await LLMClient.generateText(systemPrompt, userPrompt);
 
-    // 4. Parsear respuesta
+    // 4. Parsear respuesta de forma robusta
     logger.info('Parseando respuesta del modelo...');
     const parsedAnalysis = this.parseModelResponse(rawResponse);
 
@@ -282,14 +357,16 @@ Genera el análisis JSON ahora:`;
     const savedAnalysis = await AIAnalysisModel.upsert({
       teacherId,
       periodo,
-      profile: parsedAnalysis.profile,
-      strengths: parsedAnalysis.strengths,
-      improvements: parsedAnalysis.improvements,
-      recommendations: parsedAnalysis.recommendations,
-      modelVersion: AI_GENERATION_CONFIG.MODEL_NAME,
+      profile:          parsedAnalysis.profile,
+      strengths:        parsedAnalysis.strengths,
+      improvements:     parsedAnalysis.improvements,
+      recommendations:  parsedAnalysis.recommendations,
+      responsesComment: parsedAnalysis.responsesComment,
+      commentsComment:  parsedAnalysis.commentsComment,
+      modelVersion:     AI_GENERATION_CONFIG.MODEL_NAME,
       evaluationsCount: teacherData.completedEvaluations,
-      responsesCount: teacherData.responsesCount,
-      averageScore: teacherData.averageScore,
+      responsesCount:   teacherData.responsesCount,
+      averageScore:     teacherData.averageScore,
     });
 
     logger.success(`Análisis generado y guardado exitosamente para docente ${teacherId}`);
@@ -298,18 +375,14 @@ Genera el análisis JSON ahora:`;
   }
 
   /**
-   * Obtiene el análisis existente de un docente (sin regenerar)
-   *
-   * @param {number} teacherId
-   * @param {string} periodo
-   * @returns {Promise<Object|null>}
+   * Obtiene el análisis existente de un docente (sin regenerar).
    */
   static async getAnalysis(teacherId, periodo) {
     return await AIAnalysisModel.findByTeacherAndPeriod(teacherId, periodo);
   }
 
   /**
-   * Health check del servicio
+   * Health check del servicio LLM.
    */
   static async healthCheck() {
     return await LLMClient.healthCheck();

@@ -315,6 +315,12 @@ model AIAnalysis {
   
   // Recomendaciones (JSON array de strings)
   recommendations Json
+
+  // Comentario general sobre las respuestas cuantitativas
+  responsesComment String @default("") @map("responses_comment") @db.Text
+
+  // Comentario general sobre los comentarios anónimos de estudiantes
+  commentsComment String @default("") @map("comments_comment") @db.Text
   
   // Metadata del análisis
   analysisDate    DateTime  @default(now()) @map("analysis_date")

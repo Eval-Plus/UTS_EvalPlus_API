@@ -7,7 +7,7 @@ import prisma from '../config/prisma.js';
 
 export class AIAnalysisModel {
   /**
-   * Busca el análisis más reciente de un docente en un período
+   * Busca el análisis de un docente en un período
    */
   static async findByTeacherAndPeriod(teacherId, periodo) {
     return await prisma.aIAnalysis.findUnique({
@@ -38,28 +38,32 @@ export class AIAnalysisModel {
         },
       },
       update: {
-        profile: data.profile,
-        strengths: data.strengths,
-        improvements: data.improvements,
-        recommendations: data.recommendations,
-        modelVersion: data.modelVersion,
+        profile:          data.profile,
+        strengths:        data.strengths,
+        improvements:     data.improvements,
+        recommendations:  data.recommendations,
+        responsesComment: data.responsesComment ?? '',
+        commentsComment:  data.commentsComment  ?? '',
+        modelVersion:     data.modelVersion,
         evaluationsCount: data.evaluationsCount,
-        responsesCount: data.responsesCount,
-        averageScore: data.averageScore,
-        analysisDate: new Date(),
-        updatedAt: new Date(),
+        responsesCount:   data.responsesCount,
+        averageScore:     data.averageScore,
+        analysisDate:     new Date(),
+        updatedAt:        new Date(),
       },
       create: {
-        teacherId: parseInt(data.teacherId),
-        periodo: data.periodo,
-        profile: data.profile,
-        strengths: data.strengths,
-        improvements: data.improvements,
-        recommendations: data.recommendations,
-        modelVersion: data.modelVersion,
+        teacherId:        parseInt(data.teacherId),
+        periodo:          data.periodo,
+        profile:          data.profile,
+        strengths:        data.strengths,
+        improvements:     data.improvements,
+        recommendations:  data.recommendations,
+        responsesComment: data.responsesComment ?? '',
+        commentsComment:  data.commentsComment  ?? '',
+        modelVersion:     data.modelVersion,
         evaluationsCount: data.evaluationsCount,
-        responsesCount: data.responsesCount,
-        averageScore: data.averageScore,
+        responsesCount:   data.responsesCount,
+        averageScore:     data.averageScore,
       },
       include: {
         teacher: {
