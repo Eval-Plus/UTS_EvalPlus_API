@@ -39,7 +39,7 @@ export const AI_GENERATION_CONFIG = {
   MAX_RETRIES: 2,
   RETRY_DELAY: 3000,
 
-  MAX_TOKENS: 1500,
+  MAX_TOKENS: 3000,
   TEMPERATURE: 0.7,
 
   // Umbrales para clasificar el promedio general del docente
